@@ -1,0 +1,9 @@
+# Bonus: PHPStan statik analiz (composer analiz)
+parameters:
+    level: 6
+    paths:
+        - src
+        - bin
+        - config
+        - public/index.php
+    tmpDir: .phpunit.cache/phpstan
