@@ -1,3 +1,16 @@
 /vendor/
 .phpunit.cache/
+.phpunit.result.cache
 .env
+/coverage/
+
+# Çalışma zamanında üretilen veriler (örnek veri: composer seed)
+/storage/data/*
+!/storage/data/.gitkeep
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+!/storage/uploads/.htaccess
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/mail/*
+!/storage/mail/.gitkeep
