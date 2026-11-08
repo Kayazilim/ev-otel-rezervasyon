@@ -6,4 +6,5 @@ parameters:
         - bin
         - config
         - public/index.php
+        - tests
     tmpDir: .phpunit.cache/phpstan

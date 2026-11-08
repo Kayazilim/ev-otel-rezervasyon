@@ -30,7 +30,20 @@ final class Settings
         public readonly int $passwordResetMinutes = 60,
         public readonly int $uploadMaxBytes = 2097152,
         public readonly int $perPage = 6,
+        public readonly string $storage = 'json',
+        public readonly string $dbHost = '127.0.0.1',
+        public readonly int $dbPort = 3306,
+        public readonly string $dbName = 'evotel',
+        public readonly string $dbUser = 'root',
+        public readonly string $dbPassword = '',
+        public readonly string $backupDir = '',
+        public readonly string $migrationsDir = '',
     ) {
+    }
+
+    public function usesMySql(): bool
+    {
+        return $this->storage === 'mysql';
     }
 
     /** @param array<string, mixed> $config */
@@ -39,6 +52,8 @@ final class Settings
         $str = static fn (string $k, string $d): string => isset($config[$k]) && is_string($config[$k]) ? $config[$k] : $d;
         $int = static fn (string $k, int $d): int => isset($config[$k]) && is_int($config[$k]) ? $config[$k] : $d;
         $flt = static fn (string $k, float $d): float => isset($config[$k]) && is_numeric($config[$k]) ? (float) $config[$k] : $d;
+        $db = is_array($config['db'] ?? null) ? $config['db'] : [];
+        $dbStr = static fn (string $k, string $d): string => isset($db[$k]) && is_string($db[$k]) ? $db[$k] : $d;
 
         return new self(
             appName: $str('app_name', 'EvOtel'),
@@ -61,6 +76,14 @@ final class Settings
             passwordResetMinutes: $int('password_reset_minutes', 60),
             uploadMaxBytes: $int('upload_max_bytes', 2097152),
             perPage: $int('per_page', 6),
+            storage: $str('storage', 'json') === 'mysql' ? 'mysql' : 'json',
+            dbHost: $dbStr('host', '127.0.0.1'),
+            dbPort: isset($db['port']) && is_int($db['port']) ? $db['port'] : 3306,
+            dbName: $dbStr('name', 'evotel'),
+            dbUser: $dbStr('user', 'root'),
+            dbPassword: $dbStr('password', ''),
+            backupDir: $str('backup_dir', ''),
+            migrationsDir: $str('migrations_dir', ''),
         );
     }
 }

@@ -8,10 +8,14 @@ use App\Exception\ValidationException;
 use App\Model\Role;
 use App\Model\UserStatus;
 use Tests\Support\AppTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /** FR-01 - FR-04, NFR-02, NFR-15: kayıt, parola özeti, giriş kısıtı, sıfırlama jetonu, şifre değiştirme. */
 final class AuthServiceTest extends AppTestCase
 {
+    #[Group('FR-01')]
+    #[Group('AC-01')]
+    #[Group('NFR-02')]
     public function testRegisterStoresPasswordHashNotPlainText(): void
     {
         $user = $this->c->authService()->register('Ayşe', 'Kaya', 'AYSE@Example.com', 'GizliParola1', Role::Musteri);
@@ -19,9 +23,11 @@ final class AuthServiceTest extends AppTestCase
         self::assertSame('ayse@example.com', $user->email);
         self::assertNotSame('GizliParola1', $user->passwordHash);
         self::assertTrue(password_verify('GizliParola1', $user->passwordHash));
-        self::assertStringNotContainsString('GizliParola1', (string) file_get_contents($this->dir . '/data/users.json'));
+        self::assertStringNotContainsString('GizliParola1', $this->rawTable('users'), 'Depoda düz metin parola yok');
     }
 
+    #[Group('FR-01')]
+    #[Group('NFR-06')]
     public function testRegisterValidationAndUniqueEmail(): void
     {
         $auth = $this->c->authService();
@@ -37,12 +43,16 @@ final class AuthServiceTest extends AppTestCase
         $auth->register('Ali', 'Başka', 'ALI@example.com', 'Parola1234', Role::IlanSahibi);
     }
 
+    #[Group('FR-01')]
+    #[Group('FR-05')]
     public function testAdminAccountCannotBeSelfRegistered(): void
     {
         $this->expectException(ValidationException::class);
         $this->c->authService()->register('Kötü', 'Niyet', 'admin@example.com', 'Parola1234', Role::Yonetici);
     }
 
+    #[Group('FR-02')]
+    #[Group('NFR-15')]
     public function testFiveFailedLoginsLockForFifteenMinutes(): void
     {
         $auth = $this->c->authService();
@@ -65,6 +75,8 @@ final class AuthServiceTest extends AppTestCase
         self::assertSame('can@example.com', $auth->login('can@example.com', 'DogruParola1')->email);
     }
 
+    #[Group('FR-02')]
+    #[Group('FR-29')]
     public function testRestrictedAccountCannotLogIn(): void
     {
         $auth = $this->c->authService();
@@ -76,6 +88,8 @@ final class AuthServiceTest extends AppTestCase
         $auth->login('deniz@example.com', 'Parola1234');
     }
 
+    #[Group('FR-04')]
+    #[Group('NFR-02')]
     public function testResetTokenIsSingleUseAndExpiresAfter60Minutes(): void
     {
         $auth = $this->c->authService();
@@ -87,7 +101,7 @@ final class AuthServiceTest extends AppTestCase
             return 'http://test/parola-sifirla/' . $t;
         });
         self::assertSame(64, strlen($token));
-        self::assertStringNotContainsString($token, (string) file_get_contents($this->dir . '/data/password_reset_tokens.json'), 'Jetonun kendisi değil özeti saklanır');
+        self::assertStringNotContainsString($token, $this->rawTable('password_reset_tokens'), 'Jetonun kendisi değil özeti saklanır');
 
         $auth->resetPassword($token, 'YeniParola1');
         self::assertSame('selin@example.com', $auth->login('selin@example.com', 'YeniParola1')->email);
@@ -108,6 +122,7 @@ final class AuthServiceTest extends AppTestCase
         $auth->resetPassword($second, 'GecikmisParola1');
     }
 
+    #[Group('FR-31')]
     public function testChangePasswordRequiresCurrentPassword(): void
     {
         $auth = $this->c->authService();

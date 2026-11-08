@@ -50,6 +50,7 @@ final class PropertyService
         private readonly UserRepositoryInterface $users,
         private readonly FavoriteRepositoryInterface $favorites,
         private readonly ReservationRepositoryInterface $reservations,
+        private readonly AvailabilityService $availability,
         private readonly BookingConflictService $conflicts,
         private readonly PricingService $pricing,
         private readonly RefundService $refunds,
@@ -401,8 +402,8 @@ final class PropertyService
     public function removeByAdmin(int $adminId, int $propertyId, string $reason): int
     {
         $reason = trim($reason);
-        if (Text::length($reason) < 5) {
-            throw ValidationException::single('neden', 'Kaldırma nedeni en az 5 karakter olmalıdır.');
+        if (Text::length($reason) < 5 || Text::length($reason) > 500) {
+            throw ValidationException::single('neden', 'Kaldırma nedeni 5-500 karakter olmalıdır.');
         }
 
         return $this->tx->transactional(function () use ($adminId, $propertyId, $reason): int {
@@ -429,11 +430,11 @@ final class PropertyService
         if (trim($input->name) === '' || Text::length($input->name) > 120) {
             $errors['ad'] = 'İlan adı zorunludur (en çok 120 karakter).';
         }
-        if (Text::length(trim($input->description)) < 20) {
-            $errors['aciklama'] = 'Açıklama en az 20 karakter olmalıdır.';
+        if (Text::length(trim($input->description)) < 20 || Text::length($input->description) > 5000) {
+            $errors['aciklama'] = 'Açıklama 20-5000 karakter olmalıdır.';
         }
-        if (trim($input->address) === '') {
-            $errors['adres'] = 'Adres zorunludur.';
+        if (trim($input->address) === '' || Text::length($input->address) > 255) {
+            $errors['adres'] = 'Adres zorunludur (en çok 255 karakter).';
         }
         if (trim($input->city) === '' || Text::length($input->city) > 60) {
             $errors['sehir'] = 'Şehir zorunludur.';
@@ -473,8 +474,13 @@ final class PropertyService
         $cheapest = null;
         $available = count($units);
         if ($range !== null) {
-            // Tek kural: müsaitlik BookingConflictService'ten, fiyat PricingService'ten (FR-06, FR-44)
-            $availableUnits = array_values(array_filter($units, fn (BookableUnit $u): bool => $this->conflicts->isAvailable((int) $u->id, $range)));
+            // SRS 4.7: arama için müsait birimleri AvailabilityService hesaplar (kuralı BookingConflictService'ten alır);
+            // fiyat PricingService'ten gelir (FR-06, FR-44). Oda tipi filtresi bunun üzerine uygulanır.
+            $allowed = array_flip(array_map(fn (BookableUnit $u): int => (int) $u->id, $units));
+            $availableUnits = array_values(array_filter(
+                $this->availability->availableUnits($property, $range, $criteria->guests),
+                fn (BookableUnit $u): bool => isset($allowed[(int) $u->id])
+            ));
             if ($availableUnits === []) {
                 return null;
             }

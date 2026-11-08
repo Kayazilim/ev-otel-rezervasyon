@@ -7,6 +7,7 @@ namespace App\Core;
 use App\Exception\BusyException;
 use App\Exception\ForbiddenException;
 use App\Exception\NotFoundException;
+use App\Exception\StorageUnavailableException;
 use App\Model\Role;
 use App\Seed\DemoSeeder;
 use Throwable;
@@ -19,6 +20,9 @@ use Throwable;
  */
 final class Kernel
 {
+    /** İstek /api/ ile başlıyorsa yanıtlar (hatalar dahil) JSON'dur. */
+    private bool $api = false;
+
     public function __construct(private readonly Container $container)
     {
     }
@@ -29,6 +33,7 @@ final class Kernel
         $session = $this->container->session();
         $auth = $this->container->auth();
         $logger = $this->container->logger();
+        $this->api = str_starts_with($request->path, '/api/');
 
         try {
             $this->ensureDemoData();
@@ -66,6 +71,9 @@ final class Kernel
             // Rota bazlı yetki (FR-05): arayüzde gizli olsa bile doğrudan istek de reddedilir.
             $access = $match['access'];
             if ($access !== null && !$auth->check()) {
+                if ($this->api) {
+                    return $this->secure(Response::json(['basarili' => false, 'hata' => 'Oturum gerekli.'], 401));
+                }
                 if (str_starts_with($request->path, '/parca/')) {
                     return $this->secure(Response::html('Oturum gerekli.', 401));
                 }
@@ -89,6 +97,10 @@ final class Kernel
             return $this->secure($this->error($view, 403, 'Yetkiniz yok', $e->getMessage()));
         } catch (BusyException $e) {
             return $this->secure($this->error($view, 503, 'Yoğunluk', $e->getMessage()));
+        } catch (StorageUnavailableException $e) {
+            $logger->error('veri_deposu_yok', ['mesaj' => $e->getMessage()]);
+
+            return $this->secure($this->error($view, 503, 'Veri deposuna ulaşılamıyor', $e->getMessage()));
         } catch (Throwable $e) {
             // Ayrıntı günlüğe yazılır (hassas veri içermez); kullanıcıya genel mesaj gösterilir (NFR-10).
             $logger->error('beklenmeyen_hata', ['tur' => $e::class, 'mesaj' => $e->getMessage(), 'yer' => basename($e->getFile()) . ':' . $e->getLine()]);
@@ -99,6 +111,10 @@ final class Kernel
 
     private function error(View $view, int $status, string $title, string $message): Response
     {
+        if ($this->api) {
+            // JSON uç noktaları hatayı da JSON olarak döndürür
+            return Response::json(['basarili' => false, 'hata' => $message], $status);
+        }
         $session = $this->container->session();
         $user = $this->container->auth()->user();
         $home = match (true) {
@@ -129,8 +145,7 @@ final class Kernel
     /** Sunumda boş veriyle demo yapılmaz: veri klasörü boşsa örnek veri bir kez yüklenir. */
     private function ensureDemoData(): void
     {
-        $dir = $this->container->settings->dataDir;
-        if (!is_file($dir . '/users.json')) {
+        if ($this->container->needsDemoData()) {
             (new DemoSeeder($this->container))->run();
             $this->container->logger()->info('ornek_veri_yuklendi');
         }

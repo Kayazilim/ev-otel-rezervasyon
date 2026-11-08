@@ -65,10 +65,10 @@ final class DemoSeeder
     /** @return array<string, int> */
     public function run(): array
     {
-        $db = $this->c->db();
-        $db->truncateAll();
+        // Depodan bağımsız: JSON'da dosyalar, MySQL'de tablolar boşaltılır; yükleme tek işlemde yapılır.
+        $this->c->resetStorage();
 
-        return $db->transaction(function (): array {
+        return $this->c->tx()->transactional(function (): array {
             $amenities = $this->amenities();
             $this->seedUsers();
             $properties = $this->seedProperties($amenities);

@@ -21,3 +21,14 @@ printf(
     $result['expired'],
     $result['completed']
 );
+
+// NFR-09: günde en az bir yedek (o gün yedek alınmamışsa alınır; son 7 yedek saklanır)
+try {
+    $backup = $container->backupService()->createDailyIfMissing();
+    if ($backup !== null) {
+        echo 'Günlük yedek alındı: storage/backups/' . $backup . PHP_EOL;
+    }
+} catch (Throwable $e) {
+    fwrite(STDERR, 'Günlük yedek alınamadı: ' . $e->getMessage() . PHP_EOL);
+    exit(1);
+}

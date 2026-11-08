@@ -240,6 +240,7 @@ final class HostController extends Controller
         return $this->render('host/photos', [
             'title' => 'Fotoğraflar',
             'property' => $property,
+            'units' => $this->properties->unitsOf($this->userId(), (int) $id),
             'photos' => $this->photos->forProperty((int) $id),
             'errors' => [],
         ]);
@@ -251,7 +252,7 @@ final class HostController extends Controller
         $hostId = $this->userId();
         try {
             match ($request->input('islem')) {
-                'yukle' => $this->photos->upload($hostId, (int) $id, $request->file('foto')),
+                'yukle' => $this->photos->upload($hostId, (int) $id, $request->file('foto'), $request->nullableInt('birim') ?: null),
                 'yukari' => $this->photos->move($hostId, $request->int('foto_id'), -1),
                 'asagi' => $this->photos->move($hostId, $request->int('foto_id'), 1),
                 'sil' => $this->photos->delete($hostId, $request->int('foto_id')),
@@ -261,6 +262,7 @@ final class HostController extends Controller
             return $this->render('host/photos', [
                 'title' => 'Fotoğraflar',
                 'property' => $this->properties->getOwned($hostId, (int) $id),
+                'units' => $this->properties->unitsOf($hostId, (int) $id),
                 'photos' => $this->photos->forProperty((int) $id),
                 'errors' => $e->errors(),
             ], 422);

@@ -19,6 +19,21 @@ final class Response
         return new self($body, $status);
     }
 
+    /**
+     * JSON yanıt (Etkileşim standardı: JSON döndüren AJAX uç noktası).
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function json(array $data, int $status = 200): self
+    {
+        $body = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+        return new self($body, $status, [
+            'Content-Type' => 'application/json; charset=UTF-8',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
     /** POST sonrası yönlendirme (Post/Redirect/Get): sayfa yenilense de form ikinci kez gönderilmez. */
     public static function redirect(string $url): self
     {

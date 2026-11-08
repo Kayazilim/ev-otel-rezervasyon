@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core;
 
 use App\Controller\AdminController;
+use App\Controller\ApiController;
 use App\Controller\AuthController;
 use App\Controller\ComplaintController;
 use App\Controller\Controller;
@@ -14,17 +15,20 @@ use App\Controller\ProfileController;
 use App\Controller\PropertyController;
 use App\Controller\ReservationController;
 use App\Controller\ReviewController;
+use App\Exception\StorageUnavailableException;
 use App\Repository\AmenityRepositoryInterface;
 use App\Repository\AuditLogRepositoryInterface;
 use App\Repository\BookableUnitRepositoryInterface;
 use App\Repository\CalendarRepositoryInterface;
 use App\Repository\ComplaintRepositoryInterface;
+use App\Repository\DataSnapshotInterface;
 use App\Repository\FavoriteRepositoryInterface;
 use App\Repository\Json\JsonAmenityRepository;
 use App\Repository\Json\JsonAuditLogRepository;
 use App\Repository\Json\JsonBookableUnitRepository;
 use App\Repository\Json\JsonCalendarRepository;
 use App\Repository\Json\JsonComplaintRepository;
+use App\Repository\Json\JsonDataSnapshot;
 use App\Repository\Json\JsonDatabase;
 use App\Repository\Json\JsonFavoriteRepository;
 use App\Repository\Json\JsonLoginAttemptRepository;
@@ -39,6 +43,27 @@ use App\Repository\Json\JsonReservationRepository;
 use App\Repository\Json\JsonReviewRepository;
 use App\Repository\Json\JsonTransactionManager;
 use App\Repository\Json\JsonUserRepository;
+use App\Repository\MySql\Migrator;
+use App\Repository\MySql\MySqlAmenityRepository;
+use App\Repository\MySql\MySqlAuditLogRepository;
+use App\Repository\MySql\MySqlBookableUnitRepository;
+use App\Repository\MySql\MySqlCalendarRepository;
+use App\Repository\MySql\MySqlComplaintRepository;
+use App\Repository\MySql\MySqlDataSnapshot;
+use App\Repository\MySql\MySqlDatabase;
+use App\Repository\MySql\MySqlFavoriteRepository;
+use App\Repository\MySql\MySqlLoginAttemptRepository;
+use App\Repository\MySql\MySqlNotificationRepository;
+use App\Repository\MySql\MySqlPasswordResetTokenRepository;
+use App\Repository\MySql\MySqlPaymentRepository;
+use App\Repository\MySql\MySqlPhotoRepository;
+use App\Repository\MySql\MySqlPriceRuleRepository;
+use App\Repository\MySql\MySqlPricingRuleRepository;
+use App\Repository\MySql\MySqlPropertyRepository;
+use App\Repository\MySql\MySqlReservationRepository;
+use App\Repository\MySql\MySqlReviewRepository;
+use App\Repository\MySql\MySqlTransactionManager;
+use App\Repository\MySql\MySqlUserRepository;
 use App\Repository\LoginAttemptRepositoryInterface;
 use App\Repository\NotificationRepositoryInterface;
 use App\Repository\PasswordResetTokenRepositoryInterface;
@@ -55,6 +80,7 @@ use App\Router;
 use App\Service\AuditService;
 use App\Service\AuthService;
 use App\Service\AvailabilityService;
+use App\Service\BackupService;
 use App\Service\BookingConflictService;
 use App\Service\ComplaintService;
 use App\Service\ConsistencyAuditService;
@@ -81,7 +107,7 @@ use InvalidArgumentException;
 
 /**
  * Nesnelerin birbirine bağlandığı tek yer (composition root).
- * Aşama 3'te yalnızca depo (repository) fabrikaları MySQL sınıflarıyla değiştirilir;
+ * Depo (repository) uygulaması "storage" ayarına göre JSON (Aşama 2) veya MySQL (Aşama 3) seçilir;
  * servisler ve controller'lar değişmez (tasarim.md kontrol sorusu).
  */
 final class Container
@@ -92,7 +118,6 @@ final class Container
     public function __construct(
         public readonly Settings $settings,
         public readonly ClockInterface $clock,
-        private readonly ?JsonDatabase $database = null,
     ) {
     }
 
@@ -118,15 +143,85 @@ final class Container
 
     // ------------------------------------------------------------ altyapı
 
-    public function db(): JsonDatabase
+    /** Aşama 2 veri deposu: storage/data altındaki JSON tablo dosyaları (varsayılan). */
+    public function jsonDatabase(): JsonDatabase
     {
-        return $this->once('db', fn (): JsonDatabase => $this->database
-            ?? new JsonDatabase($this->settings->dataDir, null, $this->settings->lockTimeoutSeconds, $this->settings->lockRetries));
+        return $this->once('jsonDatabase', fn (): JsonDatabase => new JsonDatabase(
+            $this->settings->dataDir,
+            null,
+            $this->settings->lockTimeoutSeconds,
+            $this->settings->lockRetries,
+        ));
+    }
+
+    /** Aşama 3 veri deposu: PDO + MySQL (EVOTEL_STORAGE=mysql). */
+    public function mysqlDatabase(): MySqlDatabase
+    {
+        return $this->once('mysqlDatabase', fn (): MySqlDatabase => new MySqlDatabase(
+            $this->settings->dbHost,
+            $this->settings->dbPort,
+            $this->settings->dbName,
+            $this->settings->dbUser,
+            $this->settings->dbPassword,
+            (int) ceil($this->settings->lockTimeoutSeconds),
+            $this->settings->lockRetries,
+        ));
+    }
+
+    public function migrator(): Migrator
+    {
+        $dir = $this->settings->migrationsDir !== '' ? $this->settings->migrationsDir : dirname(__DIR__, 2) . '/database/migrations';
+
+        return $this->once('migrator', fn (): Migrator => new Migrator($this->mysqlDatabase(), $dir));
     }
 
     public function tx(): TransactionManagerInterface
     {
-        return $this->once('tx', fn (): TransactionManagerInterface => new JsonTransactionManager($this->db()));
+        return $this->once('tx', fn (): TransactionManagerInterface => $this->settings->usesMySql()
+            ? new MySqlTransactionManager($this->mysqlDatabase())
+            : new JsonTransactionManager($this->jsonDatabase()));
+    }
+
+    /** Tüm kayıtları siler, şemayı korur (örnek veri yüklemeden önce ve testlerde). */
+    public function resetStorage(): void
+    {
+        if ($this->settings->usesMySql()) {
+            $this->migrator()->truncateAll();
+
+            return;
+        }
+        $this->jsonDatabase()->truncateAll();
+    }
+
+    /** Sunumda boş veriyle demo yapılmaz: depo boşsa (hiç kullanıcı yoksa) örnek veri yüklenmelidir. */
+    public function needsDemoData(): bool
+    {
+        if (!$this->settings->usesMySql()) {
+            return !is_file($this->settings->dataDir . '/users.json');
+        }
+        $db = $this->mysqlDatabase();
+        if (!$db->hasTable('users')) {
+            throw new StorageUnavailableException('Veritabanı tabloları bulunamadı. Önce "php bin/migrate.php" komutunu çalıştırın.');
+        }
+
+        return $db->one('SELECT id FROM users LIMIT 1') === null;
+    }
+
+    /**
+     * Repository deseni: her depo arayüzünün iki uygulaması vardır (JSON ve MySQL). Hangisinin
+     * kullanılacağına yalnızca burada, "storage" ayarına göre karar verilir; servisler farkı bilmez.
+     *
+     * @template T of object
+     * @param class-string<T> $interface
+     * @param class-string<T> $json
+     * @param class-string<T> $mysql
+     * @return T
+     */
+    private function repository(string $interface, string $json, string $mysql): object
+    {
+        return $this->once($interface, fn (): object => $this->settings->usesMySql()
+            ? new $mysql($this->mysqlDatabase())
+            : new $json($this->jsonDatabase()));
     }
 
     public function logger(): Logger
@@ -134,91 +229,91 @@ final class Container
         return $this->once('logger', fn (): Logger => new Logger($this->settings->logFile, $this->clock));
     }
 
-    // ------------------------------------------------------------ depolar (Aşama 2: JSON)
+    // ------------------------------------------------------------ depolar (JSON veya MySQL)
 
     public function users(): UserRepositoryInterface
     {
-        return $this->once('users', fn (): UserRepositoryInterface => new JsonUserRepository($this->db()));
+        return $this->repository(UserRepositoryInterface::class, JsonUserRepository::class, MySqlUserRepository::class);
     }
 
     public function loginAttempts(): LoginAttemptRepositoryInterface
     {
-        return $this->once('loginAttempts', fn (): LoginAttemptRepositoryInterface => new JsonLoginAttemptRepository($this->db()));
+        return $this->repository(LoginAttemptRepositoryInterface::class, JsonLoginAttemptRepository::class, MySqlLoginAttemptRepository::class);
     }
 
     public function resetTokens(): PasswordResetTokenRepositoryInterface
     {
-        return $this->once('resetTokens', fn (): PasswordResetTokenRepositoryInterface => new JsonPasswordResetTokenRepository($this->db()));
+        return $this->repository(PasswordResetTokenRepositoryInterface::class, JsonPasswordResetTokenRepository::class, MySqlPasswordResetTokenRepository::class);
     }
 
     public function properties(): PropertyRepositoryInterface
     {
-        return $this->once('properties', fn (): PropertyRepositoryInterface => new JsonPropertyRepository($this->db()));
+        return $this->repository(PropertyRepositoryInterface::class, JsonPropertyRepository::class, MySqlPropertyRepository::class);
     }
 
     public function units(): BookableUnitRepositoryInterface
     {
-        return $this->once('units', fn (): BookableUnitRepositoryInterface => new JsonBookableUnitRepository($this->db()));
+        return $this->repository(BookableUnitRepositoryInterface::class, JsonBookableUnitRepository::class, MySqlBookableUnitRepository::class);
     }
 
     public function amenities(): AmenityRepositoryInterface
     {
-        return $this->once('amenities', fn (): AmenityRepositoryInterface => new JsonAmenityRepository($this->db()));
+        return $this->repository(AmenityRepositoryInterface::class, JsonAmenityRepository::class, MySqlAmenityRepository::class);
     }
 
     public function photos(): PhotoRepositoryInterface
     {
-        return $this->once('photos', fn (): PhotoRepositoryInterface => new JsonPhotoRepository($this->db()));
+        return $this->repository(PhotoRepositoryInterface::class, JsonPhotoRepository::class, MySqlPhotoRepository::class);
     }
 
     public function calendar(): CalendarRepositoryInterface
     {
-        return $this->once('calendar', fn (): CalendarRepositoryInterface => new JsonCalendarRepository($this->db()));
+        return $this->repository(CalendarRepositoryInterface::class, JsonCalendarRepository::class, MySqlCalendarRepository::class);
     }
 
     public function priceRules(): PriceRuleRepositoryInterface
     {
-        return $this->once('priceRules', fn (): PriceRuleRepositoryInterface => new JsonPriceRuleRepository($this->db()));
+        return $this->repository(PriceRuleRepositoryInterface::class, JsonPriceRuleRepository::class, MySqlPriceRuleRepository::class);
     }
 
     public function pricingRules(): PricingRuleRepositoryInterface
     {
-        return $this->once('pricingRules', fn (): PricingRuleRepositoryInterface => new JsonPricingRuleRepository($this->db()));
+        return $this->repository(PricingRuleRepositoryInterface::class, JsonPricingRuleRepository::class, MySqlPricingRuleRepository::class);
     }
 
     public function reservations(): ReservationRepositoryInterface
     {
-        return $this->once('reservations', fn (): ReservationRepositoryInterface => new JsonReservationRepository($this->db()));
+        return $this->repository(ReservationRepositoryInterface::class, JsonReservationRepository::class, MySqlReservationRepository::class);
     }
 
     public function payments(): PaymentRepositoryInterface
     {
-        return $this->once('payments', fn (): PaymentRepositoryInterface => new JsonPaymentRepository($this->db()));
+        return $this->repository(PaymentRepositoryInterface::class, JsonPaymentRepository::class, MySqlPaymentRepository::class);
     }
 
     public function reviews(): ReviewRepositoryInterface
     {
-        return $this->once('reviews', fn (): ReviewRepositoryInterface => new JsonReviewRepository($this->db()));
+        return $this->repository(ReviewRepositoryInterface::class, JsonReviewRepository::class, MySqlReviewRepository::class);
     }
 
     public function favorites(): FavoriteRepositoryInterface
     {
-        return $this->once('favorites', fn (): FavoriteRepositoryInterface => new JsonFavoriteRepository($this->db()));
+        return $this->repository(FavoriteRepositoryInterface::class, JsonFavoriteRepository::class, MySqlFavoriteRepository::class);
     }
 
     public function notifications(): NotificationRepositoryInterface
     {
-        return $this->once('notifications', fn (): NotificationRepositoryInterface => new JsonNotificationRepository($this->db()));
+        return $this->repository(NotificationRepositoryInterface::class, JsonNotificationRepository::class, MySqlNotificationRepository::class);
     }
 
     public function complaints(): ComplaintRepositoryInterface
     {
-        return $this->once('complaints', fn (): ComplaintRepositoryInterface => new JsonComplaintRepository($this->db()));
+        return $this->repository(ComplaintRepositoryInterface::class, JsonComplaintRepository::class, MySqlComplaintRepository::class);
     }
 
     public function auditLogs(): AuditLogRepositoryInterface
     {
-        return $this->once('auditLogs', fn (): AuditLogRepositoryInterface => new JsonAuditLogRepository($this->db()));
+        return $this->repository(AuditLogRepositoryInterface::class, JsonAuditLogRepository::class, MySqlAuditLogRepository::class);
     }
 
     // ------------------------------------------------------------ servisler
@@ -331,6 +426,7 @@ final class Container
             $this->users(),
             $this->favorites(),
             $this->reservations(),
+            $this->availabilityService(),
             $this->bookingConflictService(),
             $this->pricingService(),
             $this->refundService(),
@@ -397,7 +493,7 @@ final class Container
 
     public function reportService(): ReportService
     {
-        return $this->once('reportService', fn (): ReportService => new ReportService($this->properties(), $this->units(), $this->reservations(), $this->payments()));
+        return $this->once('reportService', fn (): ReportService => new ReportService($this->properties(), $this->units(), $this->reservations()));
     }
 
     public function photoService(): PhotoService
@@ -405,9 +501,30 @@ final class Container
         return $this->once('photoService', fn (): PhotoService => new PhotoService(
             $this->photos(),
             $this->properties(),
+            $this->units(),
             $this->tx(),
             $this->settings->uploadDir,
             $this->settings->uploadMaxBytes,
+        ));
+    }
+
+    /** Tüm tabloların tutarlı anlık görüntüsü (yedekleme). */
+    public function dataSnapshot(): DataSnapshotInterface
+    {
+        return $this->repository(DataSnapshotInterface::class, JsonDataSnapshot::class, MySqlDataSnapshot::class);
+    }
+
+    /** NFR-09: yedek alma / geri yükleme (depodan bağımsız). */
+    public function backupService(): BackupService
+    {
+        $dir = $this->settings->backupDir !== '' ? $this->settings->backupDir : dirname(__DIR__, 2) . '/storage/backups';
+
+        return $this->once('backupService', fn (): BackupService => new BackupService(
+            $this->dataSnapshot(),
+            $dir,
+            $this->settings->storage,
+            $this->clock,
+            $this->logger(),
         ));
     }
 
@@ -462,6 +579,7 @@ final class Container
         $a = $this->auth();
 
         return match ($class) {
+            ApiController::class => new ApiController($v, $s, $a, $this->reservationService(), $this->clock),
             HomeController::class => new HomeController($v, $s, $a, $this->propertyService()),
             AuthController::class => new AuthController($v, $s, $a, $this->authService()),
             PropertyController::class => new PropertyController(
@@ -470,11 +588,10 @@ final class Container
                 $a,
                 $this->propertyService(),
                 $this->availabilityService(),
-                $this->reservationService(),
                 $this->photoService(),
                 $this->clock,
             ),
-            ReservationController::class => new ReservationController($v, $s, $a, $this->reservationService(), $this->propertyService(), $this->clock),
+            ReservationController::class => new ReservationController($v, $s, $a, $this->reservationService(), $this->clock),
             ReviewController::class => new ReviewController($v, $s, $a, $this->reviewService(), $this->reservationService()),
             ProfileController::class => new ProfileController(
                 $v,

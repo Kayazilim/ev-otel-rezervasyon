@@ -13,7 +13,6 @@ use App\Exception\ConflictException;
 use App\Exception\PriceChangedException;
 use App\Exception\ValidationException;
 use App\Service\Dto\CreateReservationRequest;
-use App\Service\PropertyService;
 use App\Service\ReservationService;
 use App\Support\ClockInterface;
 use App\Support\DateRange;
@@ -21,7 +20,10 @@ use App\Support\Decimal;
 use App\Support\Money;
 use InvalidArgumentException;
 
-/** Rezervasyon oluşturma, ödeme, iptal ve listeleme (UC-02, UC-04; taslak 04). */
+/**
+ * Rezervasyon oluşturma, ödeme, iptal ve listeleme (UC-02, UC-04; taslak 04).
+ * SRS 4.7: formu ve idempotency anahtarını alır, yalnızca ReservationService'i çağırır.
+ */
 final class ReservationController extends Controller
 {
     public function __construct(
@@ -29,7 +31,6 @@ final class ReservationController extends Controller
         Session $session,
         Auth $auth,
         private readonly ReservationService $reservations,
-        private readonly PropertyService $properties,
         private readonly ClockInterface $clock,
     ) {
         parent::__construct($view, $session, $auth);
@@ -227,13 +228,12 @@ final class ReservationController extends Controller
             $this->flash('danger', $message);
         }
         $unitId = $request->int('birim');
-        try {
-            [, $property] = $this->properties->unitWithProperty($unitId, $this->auth->user());
-        } catch (\App\Exception\NotFoundException) {
+        $propertyId = $this->reservations->propertyIdOfUnit($unitId);
+        if ($propertyId === null) {
             return $this->redirect('/ara');
         }
 
-        return $this->redirect('/ilan/' . $property->id, [
+        return $this->redirect('/ilan/' . $propertyId, [
             'birim' => $unitId,
             'giris' => $request->input('giris'),
             'cikis' => $request->input('cikis'),

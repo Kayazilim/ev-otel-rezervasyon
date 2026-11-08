@@ -5,9 +5,14 @@
  * @var App\Core\View $view
  * @var App\Model\Property $property
  * @var list<App\Model\Photo> $photos
+ * @var list<App\Model\BookableUnit> $units
  * @var array<string, string> $errors
  */
 $action = $view->url('/panel/ilan/' . $property->id . '/fotograflar');
+$unitNames = [];
+foreach ($units as $unit) {
+    $unitNames[(int) $unit->id] = $unit->name;
+}
 ?>
 <div class="row g-3">
     <div class="col-12 col-lg-3"><?= $view->partial('partials/host_nav') ?></div>
@@ -23,6 +28,14 @@ $action = $view->url('/panel/ilan/' . $property->id . '/fotograflar');
                 <button type="submit" class="btn btn-success">Yükle</button>
             </div>
             <?= $view->error($errors, 'foto') ?>
+            <label for="birim" class="form-label fw-semibold mt-2 mb-1">Ait olduğu oda (isteğe bağlı)</label>
+            <select class="form-select<?= $view->invalid($errors, 'birim') ?>" id="birim" name="birim">
+                <option value="">İlanın geneli</option>
+                <?php foreach ($units as $unit): ?>
+                    <option value="<?= (int) $unit->id ?>"><?= e($unit->name . ' · ' . $unit->roomType->label()) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <?= $view->error($errors, 'birim') ?>
             <div class="form-text">Dosya adı sunucuda rastgele üretilir; dosyalar web klasörünün dışında saklanır.</div>
         </form>
 
@@ -32,7 +45,7 @@ $action = $view->url('/panel/ilan/' . $property->id . '/fotograflar');
                     <div class="card shadow-sm h-100">
                         <img src="<?= e($view->url('/foto/' . $photo->id)) ?>" class="kucuk-foto card-img-top" alt="Fotoğraf <?= $i + 1 ?>" loading="lazy">
                         <div class="card-body p-2 d-flex justify-content-between align-items-center">
-                            <span class="small text-body-secondary">#<?= $i + 1 ?> · <?= e(number_format($photo->sizeBytes / 1024, 0, ',', '.')) ?> KB</span>
+                            <span class="small text-body-secondary">#<?= $i + 1 ?> · <?= e($photo->unitId !== null ? ($unitNames[$photo->unitId] ?? 'oda') : 'genel') ?> · <?= e(number_format($photo->sizeBytes / 1024, 0, ',', '.')) ?> KB</span>
                             <span class="d-flex gap-1">
                                 <?php foreach (['yukari' => '↑', 'asagi' => '↓', 'sil' => '✕'] as $op => $label): ?>
                                     <form method="post" action="<?= e($action) ?>"<?= $op === 'sil' ? ' onsubmit="return confirm(\'Fotoğraf silinsin mi?\')"' : '' ?>>

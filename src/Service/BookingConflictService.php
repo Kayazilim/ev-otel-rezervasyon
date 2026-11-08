@@ -156,6 +156,22 @@ final class BookingConflictService
     }
 
     /**
+     * SRS 4.7 reserveNights(): rezervasyonun tutacağı geceler (giriş günü dahil, çıkış günü hariç).
+     * Geceler rezervasyonla aynı atomik işlemde yazılır (createWithNights); serbest bırakma ise
+     * engellemeyen duruma her geçişte ReservationStateMachine tarafından yapılır (SRS 4.3: tek yer).
+     *
+     * @return list<DateTimeImmutable>
+     */
+    public function reserveNights(DateRange $range): array
+    {
+        if ($range->nights() < 1) {
+            throw ValidationException::single('cikis', 'Çıkış tarihi giriş tarihinden sonra olmalıdır.');
+        }
+
+        return $range->nightDates();
+    }
+
+    /**
      * Lazy expiry (FR-34, CS-05): süresi dolmuş Beklemede kayıtları Süresi Doldu yapar ve gecelerini
      * serbest bırakır. Rezervasyon ve zamanlanmış görev aynı kodu kullanır.
      */

@@ -22,6 +22,7 @@ use App\Service\Dto\CreateReservationRequest;
 use App\Service\Dto\SearchCriteria;
 use App\Service\State\ReservationState;
 use Tests\Support\AppTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * UC-02, UC-04, UC-05 uçtan uca (servis katmanı + JSON depo):
@@ -68,6 +69,15 @@ final class ReservationFlowTest extends AppTestCase
         );
     }
 
+    #[Group('FR-12')]
+    #[Group('FR-13')]
+    #[Group('FR-14')]
+    #[Group('AC-04')]
+    #[Group('BR-15')]
+    #[Group('BR-16')]
+    #[Group('BR-29')]
+    #[Group('UC-02')]
+    #[Group('BR-20')]
     public function testCreateStoresPendingHoldWithNightsChargesAndNumber(): void
     {
         $r = $this->book((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-13', 2);
@@ -75,12 +85,17 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame(ReservationStatus::Beklemede, $r->status);
         self::assertMatchesRegularExpression('/^RZ-\d{8}-[A-Z0-9]{6}$/', $r->number, 'FR-13');
         self::assertEquals($this->clock->now()->modify('+10 minutes'), $r->expiresAt, 'anında mod: 10 dakika (BR-15)');
-        self::assertCount(3, $this->c->reservations()->nightsOf((int) $r->id));
+        $nights = $this->c->reservations()->nightsOf((int) $r->id);
+        self::assertCount(3, $nights);
+        self::assertSame([$r->unitId], array_values(array_unique(array_map(fn ($n): int => $n->unitId, $nights))), 'BR-20: rezervasyon tek birime aittir');
         $charges = $this->c->reservations()->chargesOf((int) $r->id);
         self::assertSame($r->totalPrice, array_sum(array_map(fn ($c) => $c->amount, $charges)), 'Kalemler toplamı = toplam (BR-16)');
         self::assertSame(CancellationPolicy::Orta, $r->cancellationPolicy, 'Politika anlık görüntüsü (BR-29)');
     }
 
+    #[Group('BR-05')]
+    #[Group('BR-15')]
+    #[Group('FR-34')]
     public function testApprovalModeHoldsFor24Hours(): void
     {
         $property = $this->property((int) $this->host->id, BookingMode::Onayli);
@@ -90,6 +105,11 @@ final class ReservationFlowTest extends AppTestCase
         self::assertEquals($this->clock->now()->modify('+24 hours'), $r->expiresAt);
     }
 
+    #[Group('FR-18')]
+    #[Group('FR-36')]
+    #[Group('AC-12')]
+    #[Group('BR-11')]
+    #[Group('UC-02')]
     public function testConflictIsRejectedWithAlternativesAndNoRecord(): void
     {
         $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
@@ -106,6 +126,9 @@ final class ReservationFlowTest extends AppTestCase
         self::assertCount($before, $this->c->reservations()->all(), 'Reddedilen istek kayıt bırakmaz (AC-12)');
     }
 
+    #[Group('BR-11')]
+    #[Group('BR-13')]
+    #[Group('AC-14')]
     public function testBackToBackStaysAreAllowed(): void
     {
         $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
@@ -116,6 +139,11 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame(ReservationStatus::Onaylandi, $previous->status);
     }
 
+    #[Group('T-03')]
+    #[Group('CS-05')]
+    #[Group('AC-15')]
+    #[Group('FR-34')]
+    #[Group('BR-12')]
     public function testT03LazyExpiryFreesNightsForNewRequest(): void
     {
         $old = $this->book((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
@@ -128,6 +156,10 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame([], $this->c->reservations()->nightsOf((int) $old->id));
     }
 
+    #[Group('T-04')]
+    #[Group('CS-06')]
+    #[Group('AC-17')]
+    #[Group('FR-35')]
     public function testT04SameIdempotencyKeyCreatesOneReservation(): void
     {
         $key = str_repeat('a', 32);
@@ -150,21 +182,60 @@ final class ReservationFlowTest extends AppTestCase
         self::assertCount(1, $this->c->reservations()->all());
     }
 
+    #[Group('T-07')]
+    #[Group('CS-12')]
+    #[Group('FR-33')]
+    #[Group('NFR-05')]
     public function testT07FailureWhileWritingNightsRollsBackEverything(): void
     {
-        // Uygulama kontrolünü atlayıp gece tablosuna çakışan bir satır koyarak yazma hatası üret (CS-12)
-        $this->c->db()->insert('reservation_nights', ['reservation_id' => 999, 'unit_id' => $this->unit->id, 'night_date' => '2026-11-11']);
+        // Uygulama kontrolünü atlat (CS-12): gecelerini bırakmamış "iptal" bir kayıt, hatalı bir kodun
+        // bıraktığı tutarsızlığı taklit eder. Uygulama kuralı bu kaydı engelleyici saymaz; ancak gece tablosundaki
+        // UNIQUE(unit_id, night_date) kısıtı (JSON şeması ve MySQL migration'ı) yazmayı durdurur.
+        $ghost = $this->c->tx()->transactional(fn () => $this->c->reservations()->createWithNights(
+            new \App\Model\Reservation(
+                null,
+                'RZ-20261101-HAYALT',
+                (int) $this->other->id,
+                (int) $this->unit->id,
+                $this->d('2026-11-11'),
+                $this->d('2026-11-12'),
+                1,
+                ReservationStatus::IptalEdildi,
+                null,
+                100000,
+                CancellationPolicy::Orta,
+                'hayalet-kayit',
+                'Hayalet',
+                '0532 000 00 00',
+                null,
+                'test',
+                $this->clock->now(),
+                0,
+                $this->clock->now(),
+                $this->clock->now(),
+            ),
+            [],
+            [$this->d('2026-11-11')],
+        ));
 
         try {
             $this->book((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
             self::fail('Benzersizlik ihlali çakışma olarak bildirilmeliydi');
         } catch (ConflictException) {
         }
-        self::assertSame([], $this->c->reservations()->all(), 'Rezervasyon kaydı da geri alındı');
-        self::assertSame([], $this->c->db()->select('reservation_charges'), 'Kalemler de geri alındı');
-        $this->c->db()->delete('reservation_nights', fn ($r) => $r['reservation_id'] === 999);
+        self::assertCount(1, $this->c->reservations()->all(), 'Yeni rezervasyon kaydı geri alındı (yalnızca hayalet kayıt var)');
+        self::assertSame([], $this->c->reservations()->findByCustomer((int) $this->guest->id));
+        self::assertSame([], $this->c->reservations()->chargesOf((int) $ghost->id + 1), 'Kalemler de geri alındı');
+        self::assertCount(1, $this->c->reservations()->allNights(), 'Yalnızca hayalet kaydın gecesi kaldı');
+
+        // T-11 denetimi taklit edilen tutarsızlığı bulur; sonra temizlenir (tearDown denetimi boş olmalı)
+        self::assertCount(1, $this->c->consistencyAuditService()->violations());
+        $this->c->tx()->transactional(fn (): int => $this->c->reservations()->releaseNights((int) $ghost->id));
     }
 
+    #[Group('CS-04')]
+    #[Group('FR-11')]
+    #[Group('AC-20')]
     public function testCs04StalePreviewIsRejectedAtConfirmation(): void
     {
         $range = $this->range('2026-11-10', '2026-11-12');
@@ -177,6 +248,9 @@ final class ReservationFlowTest extends AppTestCase
         $this->c->reservationService()->create($this->request($range, $preview->quote->total));
     }
 
+    #[Group('FR-14')]
+    #[Group('BR-07')]
+    #[Group('UC-02')]
     public function testPriceChangeRequiresReconfirmation(): void
     {
         $range = $this->range('2026-11-10', '2026-11-12');
@@ -193,19 +267,27 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame([], $this->c->reservations()->all());
     }
 
+    #[Group('CS-09')]
+    #[Group('AC-19')]
+    #[Group('FR-37')]
+    #[Group('BR-05')]
     public function testCs09FailedPaymentKeepsPendingThenRetryConfirms(): void
     {
         $r = $this->book((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
         $service = $this->c->reservationService();
 
+        $status = fn (): ?ReservationStatus => $this->c->reservations()->findById((int) $r->id)?->status;
         $failed = $service->pay($r->number, (int) $this->guest->id, false);
         self::assertFalse($failed->isCaptured());
-        self::assertSame(ReservationStatus::Beklemede, $this->c->reservations()->findById((int) $r->id)?->status, 'AC-19');
+        self::assertSame(ReservationStatus::Beklemede, $status(), 'AC-19');
 
         $service->pay($r->number, (int) $this->guest->id, true);
-        self::assertSame(ReservationStatus::Onaylandi, $this->c->reservations()->findById((int) $r->id)?->status);
+        self::assertSame(ReservationStatus::Onaylandi, $status());
     }
 
+    #[Group('FR-34')]
+    #[Group('FR-37')]
+    #[Group('BR-15')]
     public function testPaymentAfterExpiryIsRejectedAndHoldExpires(): void
     {
         $r = $this->book((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
@@ -219,6 +301,10 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame(ReservationStatus::SuresiDoldu, $this->c->reservations()->findById((int) $r->id)?->status);
     }
 
+    #[Group('CS-10')]
+    #[Group('FR-23')]
+    #[Group('BR-15')]
+    #[Group('UC-05')]
     public function testCs10HostCannotApproveAfter24Hours(): void
     {
         $property = $this->property((int) $this->host->id, BookingMode::Onayli);
@@ -238,6 +324,10 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame($r->totalPrice, $expired->refundAmount, 'Süre dolumunda ödenen tutarın tamamı iade (BR-28)');
     }
 
+    #[Group('FR-23')]
+    #[Group('BR-28')]
+    #[Group('AC-27')]
+    #[Group('UC-05')]
     public function testHostApproveAndRejectWithFullRefund(): void
     {
         $property = $this->property((int) $this->host->id, BookingMode::Onayli);
@@ -253,6 +343,9 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame([], $this->c->reservations()->nightsOf((int) $b->id));
     }
 
+    #[Group('BR-08')]
+    #[Group('AC-07')]
+    #[Group('NFR-03')]
     public function testOtherHostCannotManageReservation(): void
     {
         $property = $this->property((int) $this->host->id, BookingMode::Onayli);
@@ -264,6 +357,11 @@ final class ReservationFlowTest extends AppTestCase
         $this->c->reservationService()->approve($r->number, (int) $stranger->id);
     }
 
+    #[Group('T-02')]
+    #[Group('FR-17')]
+    #[Group('FR-45')]
+    #[Group('AC-16')]
+    #[Group('UC-04')]
     public function testT02CancelReleasesNightsAndDatesBecomeBookableAgain(): void
     {
         $r = $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-20', '2026-11-23');
@@ -277,13 +375,15 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame(ReservationStatus::Onaylandi, $this->bookAndPay((int) $this->other->id, $this->unit, '2026-11-20', '2026-11-23')->status, 'AC-16');
     }
 
+    #[Group('T-02')]
+    #[Group('FR-15')]
     public function testInvalidTransitionFromFinalStateIsRejected(): void
     {
         $r = $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-20', '2026-11-22');
         $this->c->reservationService()->cancelByCustomer($r->number, (int) $this->guest->id);
 
         try {
-            $this->c->db()->transaction(function () use ($r): void {
+            $this->c->tx()->transactional(function () use ($r): void {
                 $current = $this->c->reservations()->findById((int) $r->id);
                 $this->c->stateMachine()->transition($current ?? $r, ReservationStatus::Onaylandi, null, 'test');
             });
@@ -294,6 +394,8 @@ final class ReservationFlowTest extends AppTestCase
         self::assertFalse(ReservationState::of(ReservationStatus::IptalEdildi)->canTransitionTo(ReservationStatus::Onaylandi));
     }
 
+    #[Group('BR-18')]
+    #[Group('FR-17')]
     public function testCancellationOnCheckInDayIsRejected(): void
     {
         $r = $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-03', '2026-11-05');
@@ -303,6 +405,11 @@ final class ReservationFlowTest extends AppTestCase
         $this->c->reservationService()->cancelByCustomer($r->number, (int) $this->guest->id);
     }
 
+    #[Group('T-08')]
+    #[Group('AC-20')]
+    #[Group('FR-06')]
+    #[Group('FR-10')]
+    #[Group('UC-01')]
     public function testT08SearchAndReservationUseTheSameRule(): void
     {
         $second = $this->unit((int) $this->property->id, 1500, 2, '102');
@@ -320,6 +427,12 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame($item->quote?->total, $booked->totalPrice, 'Aramadaki fiyat = rezervasyon fiyatı (FR-44)');
     }
 
+    #[Group('T-09')]
+    #[Group('CS-08')]
+    #[Group('AC-18')]
+    #[Group('BR-22')]
+    #[Group('FR-22')]
+    #[Group('UC-03')]
     public function testT09HostCannotCloseReservedNights(): void
     {
         $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
@@ -336,6 +449,11 @@ final class ReservationFlowTest extends AppTestCase
         self::assertFalse($this->c->bookingConflictService()->isAvailable((int) $this->unit->id, $this->range('2026-11-12', '2026-11-13')));
     }
 
+    #[Group('CS-11')]
+    #[Group('FR-28')]
+    #[Group('FR-39')]
+    #[Group('AC-09')]
+    #[Group('BR-28')]
     public function testCs11AdminRemovalCancelsFutureReservationsWithFullRefund(): void
     {
         $admin = $this->user(Role::Yonetici);
@@ -353,6 +471,8 @@ final class ReservationFlowTest extends AppTestCase
         $this->book((int) $this->other->id, $this->unit, '2026-11-25', '2026-11-27');
     }
 
+    #[Group('FR-40')]
+    #[Group('FR-34')]
     public function testFr40ScheduledTaskCompletesStaysAndExpiresHolds(): void
     {
         $stay = $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-02', '2026-11-04');
@@ -367,6 +487,9 @@ final class ReservationFlowTest extends AppTestCase
         self::assertSame([], $this->c->reservations()->nightsOf((int) $stay->id), 'Tamamlandı: gece kayıtları silinir');
     }
 
+    #[Group('FR-24')]
+    #[Group('BR-09')]
+    #[Group('BR-21')]
     public function testReviewOnlyForCompletedStayAndOnlyOnce(): void
     {
         $stay = $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-02', '2026-11-04');
@@ -384,6 +507,10 @@ final class ReservationFlowTest extends AppTestCase
         $reviews->create((int) $this->guest->id, $stay->number, 4, 'İkinci yorum kabul edilmemeli.');
     }
 
+    #[Group('FR-16')]
+    #[Group('FR-32')]
+    #[Group('AC-06')]
+    #[Group('NFR-04')]
     public function testCustomerSeesOnlyOwnReservations(): void
     {
         $r = $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
@@ -393,6 +520,7 @@ final class ReservationFlowTest extends AppTestCase
         $this->c->reservationService()->viewFor($r->number, $this->other);
     }
 
+    #[Group('FR-33')]
     public function testLockUnitRequiresTransaction(): void
     {
         $this->expectException(PersistenceException::class);

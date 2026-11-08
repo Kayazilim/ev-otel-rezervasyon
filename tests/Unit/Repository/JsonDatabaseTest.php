@@ -10,6 +10,7 @@ use App\Repository\Json\JsonDatabase;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Tests\Support\AppTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /** Aşama 2 JSON deposu: benzersizlik (son savunma), geri alma, koşullu güncelleme, günlükle kurtarma. */
 final class JsonDatabaseTest extends TestCase
@@ -28,6 +29,8 @@ final class JsonDatabaseTest extends TestCase
         AppTestCase::removeDirectory($this->dir);
     }
 
+    #[Group('FR-18')]
+    #[Group('NFR-05')]
     public function testUniqueUnitNightIsEnforced(): void
     {
         $this->db->insert('reservation_nights', ['reservation_id' => 1, 'unit_id' => 7, 'night_date' => '2026-11-10']);
@@ -36,6 +39,7 @@ final class JsonDatabaseTest extends TestCase
         $this->db->insert('reservation_nights', ['reservation_id' => 2, 'unit_id' => 7, 'night_date' => '2026-11-10']);
     }
 
+    #[Group('FR-33')]
     public function testExceptionRollsBackTheWholeTransaction(): void
     {
         try {
@@ -52,6 +56,7 @@ final class JsonDatabaseTest extends TestCase
         self::assertFileDoesNotExist($this->dir . '/reservations.json', 'Hata olunca hiçbir dosya yazılmaz');
     }
 
+    #[Group('FR-15')]
     public function testConditionalUpdateReportsAffectedRows(): void
     {
         $row = $this->db->insert('reservations', ['reservation_no' => 'RZ-1', 'idempotency_key' => 'a', 'status' => 'beklemede']);
@@ -74,6 +79,8 @@ final class JsonDatabaseTest extends TestCase
         self::assertJson((string) file_get_contents($this->dir . '/amenities.json'));
     }
 
+    #[Group('CS-12')]
+    #[Group('FR-33')]
     public function testInterruptedCommitIsCompletedFromJournal(): void
     {
         // Yarıda kalmış bir yazma: geçici dosya ve günlük var, yeniden adlandırma yapılmamış
@@ -87,6 +94,7 @@ final class JsonDatabaseTest extends TestCase
         self::assertFileDoesNotExist($this->dir . '/.journal.json');
     }
 
+    #[Group('NFR-10')]
     public function testCorruptedFileIsReportedNotSilentlyIgnored(): void
     {
         file_put_contents($this->dir . '/users.json', '{bozuk');

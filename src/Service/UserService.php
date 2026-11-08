@@ -70,8 +70,8 @@ final class UserService
     public function setStatus(int $adminId, int $userId, UserStatus $status, string $reason): User
     {
         $reason = trim($reason);
-        if (Text::length($reason) < 5) {
-            throw ValidationException::single('neden', 'Neden en az 5 karakter olmalıdır.');
+        if (Text::length($reason) < 5 || Text::length($reason) > 500) {
+            throw ValidationException::single('neden', 'Neden 5-500 karakter olmalıdır.');
         }
 
         return $this->tx->transactional(function () use ($adminId, $userId, $status, $reason): User {

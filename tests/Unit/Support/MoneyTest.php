@@ -8,8 +8,10 @@ use App\Support\Decimal;
 use App\Support\Money;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /** BR-25: kuruş bazında, yarıdan yukarı yuvarlama; float kullanılmaz. */
+#[Group('BR-25')]
 final class MoneyTest extends TestCase
 {
     public function testRoundHalfUp(): void

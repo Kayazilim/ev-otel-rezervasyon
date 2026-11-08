@@ -8,12 +8,11 @@ use App\Exception\ValidationException;
 use App\Model\BookableUnit;
 use App\Model\Property;
 use App\Model\PropertyStatus;
-use App\Model\Reservation;
+use App\Model\ReservationRevenue;
 use App\Model\ReservationStatus;
 use App\Model\RoomType;
 use App\Model\UnitStatus;
 use App\Repository\BookableUnitRepositoryInterface;
-use App\Repository\PaymentRepositoryInterface;
 use App\Repository\PropertyRepositoryInterface;
 use App\Repository\ReservationRepositoryInterface;
 use App\Service\Dto\Report;
@@ -29,6 +28,9 @@ use DateTimeImmutable;
  *                ÷ (aktif birim sayısı × dönemdeki gece sayısı) × 100
  *  Net gelir   = giriş tarihi dönemde olan rezervasyonların başarılı ödemeleri − iadeler
  * Dönem başlangıç ve bitiş günü dahildir. Yönetici tüm ilanları, ilan sahibi yalnızca kendi ilanlarını görür.
+ *
+ * Rezervasyon ve ödeme verisi tek bir JOIN'li rapor sorgusundan gelir (ReservationRepositoryInterface::reportRows:
+ * reservations ⋈ bookable_units ⋈ properties ⟕ payments); kırılımlar bu satırlar üzerinden hesaplanır.
  */
 final class ReportService
 {
@@ -36,7 +38,6 @@ final class ReportService
         private readonly PropertyRepositoryInterface $properties,
         private readonly BookableUnitRepositoryInterface $units,
         private readonly ReservationRepositoryInterface $reservations,
-        private readonly PaymentRepositoryInterface $payments,
     ) {
     }
 
@@ -58,12 +59,10 @@ final class ReportService
         }
         /** @var list<BookableUnit> $units */
         $units = array_values(array_filter($this->units->all(), fn (BookableUnit $u): bool => isset($propertyById[$u->propertyId])));
-        $unitIds = array_map(fn (BookableUnit $u): int => (int) $u->id, $units);
-        $reservations = $this->reservations->findByUnits($unitIds);
-        [$paidByReservation, $refundByReservation] = $this->paymentTotals();
+        $reservations = $this->reservations->reportRows($ownerId, $period); // JOIN'li rapor sorgusu
 
-        $build = function (string $label, array $groupUnits, DateRange $range) use ($reservations, $propertyById, $paidByReservation, $refundByReservation): ReportRow {
-            return $this->row($label, $groupUnits, $range, $reservations, $propertyById, $paidByReservation, $refundByReservation);
+        $build = function (string $label, array $groupUnits, DateRange $range) use ($reservations, $propertyById): ReportRow {
+            return $this->row($label, $groupUnits, $range, $reservations, $propertyById);
         };
 
         $byProperty = [];
@@ -132,12 +131,10 @@ final class ReportService
 
     /**
      * @param list<BookableUnit> $groupUnits
-     * @param list<Reservation> $reservations
+     * @param list<ReservationRevenue> $reservations
      * @param array<int, Property> $propertyById
-     * @param array<int, int> $paid
-     * @param array<int, int> $refunded
      */
-    private function row(string $label, array $groupUnits, DateRange $range, array $reservations, array $propertyById, array $paid, array $refunded): ReportRow
+    private function row(string $label, array $groupUnits, DateRange $range, array $reservations, array $propertyById): ReportRow
     {
         $groupIds = [];
         $active = 0;
@@ -162,8 +159,8 @@ final class ReportService
             }
             if ($this->checkInWithin($reservation, $range)) {
                 $count++;
-                $gross += $paid[(int) $reservation->id] ?? 0;
-                $refunds += $refunded[(int) $reservation->id] ?? 0;
+                $gross += $reservation->paid;
+                $refunds += $reservation->refunded;
             }
         }
         $occupancy = $capacity > 0 ? Money::roundDiv($occupied * 10000, $capacity) : 0;
@@ -171,24 +168,8 @@ final class ReportService
         return new ReportRow($label, $active, $capacity, $occupied, $occupancy, $count, $gross, $refunds, $gross - $refunds);
     }
 
-    private function checkInWithin(Reservation $reservation, DateRange $range): bool
+    private function checkInWithin(ReservationRevenue $reservation, DateRange $range): bool
     {
         return $reservation->checkIn >= $range->checkIn && $reservation->checkIn < $range->checkOut;
-    }
-
-    /** @return array{0: array<int, int>, 1: array<int, int>} rezervasyon id => başarılı ödeme / iade */
-    private function paymentTotals(): array
-    {
-        $paid = [];
-        $refunded = [];
-        foreach ($this->payments->all() as $payment) {
-            if (!$payment->isCaptured()) {
-                continue;
-            }
-            $paid[$payment->reservationId] = ($paid[$payment->reservationId] ?? 0) + $payment->amount;
-            $refunded[$payment->reservationId] = ($refunded[$payment->reservationId] ?? 0) + $payment->refundAmount;
-        }
-
-        return [$paid, $refunded];
     }
 }

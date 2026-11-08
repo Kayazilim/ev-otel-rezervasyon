@@ -8,11 +8,26 @@ declare(strict_types=1);
  */
 
 $kok = dirname(__DIR__);
+$ortam = static fn (string $ad, string $varsayilan): string => is_string(getenv($ad)) && getenv($ad) !== '' ? (string) getenv($ad) : $varsayilan;
 
 return [
     'app_name' => 'EvOtel',
     'timezone' => 'Europe/Istanbul',          // NFR-17: tüm zaman kararları sunucu saatiyle
+
+    // Veri deposu: 'json' (varsayılan; veriler storage/data altındaki JSON dosyalarında)
+    // veya 'mysql' (Aşama 3: PDO + MySQL). Değiştirmek için EVOTEL_STORAGE ortam değişkeni.
+    'storage' => $ortam('EVOTEL_STORAGE', 'json'),
+    'db' => [
+        'host' => $ortam('EVOTEL_DB_HOST', '127.0.0.1'),
+        'port' => (int) $ortam('EVOTEL_DB_PORT', '3306'),
+        'name' => $ortam('EVOTEL_DB_NAME', 'evotel'),
+        'user' => $ortam('EVOTEL_DB_USER', 'root'),
+        'password' => $ortam('EVOTEL_DB_PASSWORD', ''),
+    ],
+
     'data_dir' => $kok . '/storage/data',      // Aşama 2: JSON tablo dosyaları
+    'backup_dir' => $kok . '/storage/backups', // NFR-09: günlük yedekler (son 7)
+    'migrations_dir' => $kok . '/database/migrations',
     'upload_dir' => $kok . '/storage/uploads', // FR-46: web kökünün dışında
     'log_file' => $kok . '/storage/logs/app.log',
     'mail_dir' => $kok . '/storage/mail',      // simüle e-posta kutusu (parola sıfırlama)

@@ -8,6 +8,7 @@ use App\Support\DateRange;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * T-01 (AC-11): SRS 4.2 örnek tablosundaki 8 durum. Mevcut Onaylandı rezervasyon: 10–12 Kasım 2026.
@@ -30,6 +31,9 @@ final class DateRangeTest extends TestCase
     }
 
     #[DataProvider('srsExampleTable')]
+    #[Group('T-01')]
+    #[Group('AC-11')]
+    #[Group('BR-11')]
     public function testSrsOverlapTable(string $in, string $out, ?bool $expected): void
     {
         $existing = DateRange::fromStrings('2026-11-10', '2026-11-12');
@@ -45,6 +49,9 @@ final class DateRangeTest extends TestCase
         self::assertSame($expected, $existing->overlaps($request), 'Çakışma simetrik olmalı');
     }
 
+    #[Group('BR-02')]
+    #[Group('BR-11')]
+    #[Group('BR-13')]
     public function testNightsAreHalfOpen(): void
     {
         $range = DateRange::fromStrings('2026-11-10', '2026-11-12');
@@ -55,6 +62,7 @@ final class DateRangeTest extends TestCase
         self::assertFalse($range->containsNight(DateRange::parseDate('2026-11-12')), 'Çıkış günü gece sayılmaz');
     }
 
+    #[Group('BR-30')]
     public function testOverlapNightsForReports(): void
     {
         $stay = DateRange::fromStrings('2026-10-30', '2026-11-03');
@@ -64,12 +72,14 @@ final class DateRangeTest extends TestCase
         self::assertSame(0, DateRange::fromStrings('2026-10-01', '2026-10-05')->overlapNights($november));
     }
 
+    #[Group('BR-01')]
     public function testInvalidDateFormatIsRejected(): void
     {
         $this->expectException(InvalidArgumentException::class);
         DateRange::parseDate('2026-02-30');
     }
 
+    #[Group('FR-36')]
     public function testShiftKeepsLength(): void
     {
         $shifted = DateRange::fromStrings('2026-11-10', '2026-11-13')->shift(-2);
