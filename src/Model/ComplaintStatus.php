@@ -23,4 +23,15 @@ enum ComplaintStatus: string
             self::Reddedildi => 'Reddedildi',
         };
     }
+
+    /** Arayüzdeki rozet tonu (rozet-notr, rozet-uyari, rozet-basari, rozet-tehlike). */
+    public function tone(): string
+    {
+        return match ($this) {
+            self::Yeni => 'notr',
+            self::Inceleniyor => 'uyari',
+            self::Cozuldu => 'basari',
+            self::Reddedildi => 'tehlike',
+        };
+    }
 }

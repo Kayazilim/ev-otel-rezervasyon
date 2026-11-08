@@ -9,6 +9,9 @@ use App\Exception\NotFoundException;
 use App\Exception\ValidationException;
 use App\Model\Complaint;
 use App\Model\ComplaintStatus;
+use App\Model\PropertyStatus;
+use App\Model\Role;
+use App\Model\UserStatus;
 use App\Repository\BookableUnitRepositoryInterface;
 use App\Repository\ComplaintRepositoryInterface;
 use App\Repository\PropertyRepositoryInterface;
@@ -19,7 +22,13 @@ use App\Support\ClockInterface;
 use App\Support\Paginator;
 use App\Support\Text;
 
-/** Şikâyet oluşturma (FR-27) ve yönetici incelemesi. */
+/**
+ * Şikâyet oluşturma (FR-27) ve yönetici incelemesi.
+ *
+ * Akış: kullanıcı gönderir → şikâyet "Yeni" durumuyla yönetim ekibinin Şikâyetler kutusuna
+ * (Yönetim → Şikâyetler) düşer ve her aktif yöneticiye bildirim gider → yönetici durumu veya notu
+ * günceller → şikâyet sahibine bildirim gider; sahibi şikâyetini Şikâyetlerim sayfasından izler.
+ */
 final class ComplaintService
 {
     public function __construct(
@@ -29,6 +38,7 @@ final class ComplaintService
         private readonly BookableUnitRepositoryInterface $units,
         private readonly UserRepositoryInterface $users,
         private readonly AuditService $audit,
+        private readonly NotificationService $notifications,
         private readonly TransactionManagerInterface $tx,
         private readonly ClockInterface $clock,
     ) {
@@ -58,11 +68,49 @@ final class ComplaintService
                 throw new NotFoundException('İlan bulunamadı.');
             }
             if ($propertyId === null && $reservationId === null) {
-                throw ValidationException::single('rezervasyon', 'Şikâyet bir ilan veya rezervasyon hakkında olmalıdır.');
+                throw ValidationException::single('ilan', 'Şikâyetin hangi ilan veya rezervasyonla ilgili olduğunu seçin.');
             }
 
-            return $this->complaints->save(new Complaint(null, $senderId, $propertyId, $reservationId, $description, ComplaintStatus::Yeni, null, $this->clock->now()));
+            $complaint = $this->complaints->save(new Complaint(null, $senderId, $propertyId, $reservationId, $description, ComplaintStatus::Yeni, null, $this->clock->now()));
+            $message = sprintf('Yeni şikâyet #%d: %s. Yönetim → Şikâyetler sayfasından inceleyin.', $complaint->id, $this->subject($complaint));
+            foreach ($this->users->all() as $user) {
+                if ($user->role === Role::Yonetici && $user->status === UserStatus::Aktif && $user->id !== null) {
+                    $this->notifications->notify($user->id, 'sikayet', $message);
+                }
+            }
+
+            return $complaint;
         });
+    }
+
+    /**
+     * Şikâyetlerim: kullanıcının kendi şikâyetleri, en yenisi başta.
+     *
+     * @return list<array{complaint: Complaint, property: string, number: string}>
+     */
+    public function forSender(int $senderId): array
+    {
+        $rows = [];
+        foreach ($this->complaints->all() as $complaint) {
+            if ($complaint->senderId === $senderId) {
+                $rows[] = ['complaint' => $complaint, 'property' => $this->propertyName($complaint), 'number' => $this->reservationNumber($complaint)];
+            }
+        }
+        usort($rows, static fn (array $a, array $b): int => [$b['complaint']->createdAt, $b['complaint']->id] <=> [$a['complaint']->createdAt, $a['complaint']->id]);
+
+        return $rows;
+    }
+
+    /** @return array<int, string> şikâyet formundaki ilan seçenekleri: yayındaki ilanlar (ad · şehir) */
+    public function propertyOptions(): array
+    {
+        $options = [];
+        foreach ($this->properties->findByStatus(PropertyStatus::Aktif) as $property) {
+            $options[(int) $property->id] = $property->name . ' · ' . $property->city;
+        }
+        asort($options);
+
+        return $options;
     }
 
     /**
@@ -78,8 +126,8 @@ final class ComplaintService
             $rows[] = [
                 'complaint' => $complaint,
                 'sender' => $this->users->findById($complaint->senderId)?->fullName() ?? '-',
-                'property' => $complaint->propertyId !== null ? ($this->properties->findById($complaint->propertyId)->name ?? '-') : '-',
-                'number' => $complaint->reservationId !== null ? ($this->reservations->findById($complaint->reservationId)->number ?? '-') : '-',
+                'property' => $this->propertyName($complaint),
+                'number' => $this->reservationNumber($complaint),
             ];
         }
 
@@ -98,8 +146,33 @@ final class ComplaintService
             $complaint->adminNote = trim($note) !== '' ? trim($note) : $complaint->adminNote;
             $this->complaints->save($complaint);
             $this->audit->log($adminId, 'complaint', $complaintId, 'sikayet_guncellendi', $old, $status->value, $complaint->adminNote);
+            if ($old !== $status->value || trim($note) !== '') {
+                $this->notifications->notify($complaint->senderId, 'sikayet', sprintf(
+                    'Şikâyetiniz #%d güncellendi: %s.%s',
+                    $complaint->id,
+                    $status->label(),
+                    $complaint->adminNote !== null ? ' Yönetici notu: ' . $complaint->adminNote : ''
+                ));
+            }
 
             return $complaint;
         });
+    }
+
+    private function subject(Complaint $complaint): string
+    {
+        $number = $this->reservationNumber($complaint);
+
+        return $this->propertyName($complaint) . ($number !== '-' ? ' · ' . $number : '');
+    }
+
+    private function propertyName(Complaint $complaint): string
+    {
+        return $complaint->propertyId !== null ? ($this->properties->findById($complaint->propertyId)->name ?? '-') : '-';
+    }
+
+    private function reservationNumber(Complaint $complaint): string
+    {
+        return $complaint->reservationId !== null ? ($this->reservations->findById($complaint->reservationId)->number ?? '-') : '-';
     }
 }

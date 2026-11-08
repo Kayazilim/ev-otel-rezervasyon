@@ -523,6 +523,7 @@ final class Container
             $this->units(),
             $this->users(),
             $this->auditService(),
+            $this->notificationService(),
             $this->tx(),
             $this->clock,
         ));
