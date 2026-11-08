@@ -19,6 +19,7 @@ use App\Model\ModerationStatus;
 use App\Model\Notification;
 use App\Model\Payment;
 use App\Model\PaymentStatus;
+use App\Model\Photo;
 use App\Model\PriceRule;
 use App\Model\PriceRuleType;
 use App\Model\PricingRule;
@@ -37,21 +38,43 @@ use App\Model\UserStatus;
 use App\Service\State\ReservationState;
 use App\Support\DateRange;
 use DateTimeImmutable;
+use RuntimeException;
 
 /**
  * Örnek veri (ders kuralı: sunumda boş veriyle demo yapılmaz; AC-29: en az 10 birim, 3 oda tipi).
- * 8 ilan, 16 birim, 6 oda tipi; geçmiş, devam eden, bekleyen, iptal ve reddedilen rezervasyonlar.
- * Tarihler bugüne göre hesaplanır. Demo parolası README'de yazılıdır.
+ * 8 ilan, 16 birim, 6 oda tipi; geçmiş, devam eden, bekleyen, iptal ve reddedilen rezervasyonlar;
+ * her ilana birden çok yorum ve (GD varsa) çizilmiş ilan/oda fotoğrafları. Veriler JSON dosyalarına
+ * (veya seçiliyse MySQL'e) yazılır. Tarihler bugüne göre hesaplanır. Demo parolası README'de yazılıdır.
  */
 final class DemoSeeder
 {
     public const DEMO_PASSWORD = 'Demo1234!';
+
+    /** İlan başına fotoğraf sahneleri: [dış mekân, iç mekân]. Dış mekân gündüz ve akşam çizilir. */
+    private const PHOTO_SCENES = [
+        'karadeniz' => ['sehir-oteli', 'oda-cift'],
+        'uzungol' => ['gol-dag-evi', 'salon-somine'],
+        'bogaz' => ['bogaz-daire', 'salon'],
+        'sultanahmet' => ['tarihi-otel', 'oda-cift'],
+        'kaleici' => ['konak-otel', 'oda-aile'],
+        'kas' => ['deniz-villa', 'salon'],
+        'kapadokya' => ['tas-ev', 'salon-somine'],
+        'gumushane' => ['dag-oteli', 'oda-tek'],
+    ];
 
     /** @var array<string, User> */
     private array $users = [];
 
     /** @var array<string, BookableUnit> */
     private array $units = [];
+
+    /** @var array<string, string> birim anahtarı => ilan anahtarı */
+    private array $propertyKeyOfUnit = [];
+
+    /** @var array<string, int> ilan anahtarı ve puan başına kullanılan yorum metni sayısı */
+    private array $textCursor = [];
+
+    private int $reviewCount = 0;
 
     private DateTimeImmutable $today;
     private DateTimeImmutable $now;
@@ -65,13 +88,16 @@ final class DemoSeeder
     /** @return array<string, int> */
     public function run(): array
     {
+        // Fotoğraflar işlemden önce bellekte çizilir: veri kilidi çizim süresince tutulmaz.
+        $pictures = $this->paintPictures();
         // Depodan bağımsız: JSON'da dosyalar, MySQL'de tablolar boşaltılır; yükleme tek işlemde yapılır.
         $this->c->resetStorage();
 
-        return $this->c->tx()->transactional(function (): array {
+        return $this->c->tx()->transactional(function () use ($pictures): array {
             $amenities = $this->amenities();
             $this->seedUsers();
             $properties = $this->seedProperties($amenities);
+            $photos = $this->seedPhotos($properties, $pictures);
             $this->seedPricing($properties);
             $this->seedCalendar();
             $reservations = $this->seedReservations();
@@ -83,6 +109,8 @@ final class DemoSeeder
                 'oda/birim' => count($this->units),
                 'oda tipi' => count(array_unique(array_map(fn (BookableUnit $u): string => $u->roomType->value, $this->units))),
                 'rezervasyon' => $reservations,
+                'yorum' => $this->reviewCount,
+                'fotoğraf' => $photos,
             ];
         });
     }
@@ -111,9 +139,15 @@ final class DemoSeeder
             'deniz' => ['Deniz', 'Aydın', 'deniz@evotel.test', Role::Musteri],
             'burak' => ['Burak', 'Koç', 'burak@evotel.test', Role::Musteri],
             'selin' => ['Selin', 'Arslan', 'selin@evotel.test', Role::Musteri],
+            'elif' => ['Elif', 'Şahin', 'elif@evotel.test', Role::Musteri],
+            'emre' => ['Emre', 'Kılıç', 'emre@evotel.test', Role::Musteri],
+            'merve' => ['Merve', 'Yıldız', 'merve@evotel.test', Role::Musteri],
+            'okan' => ['Okan', 'Polat', 'okan@evotel.test', Role::Musteri],
+            'gizem' => ['Gizem', 'Er', 'gizem@evotel.test', Role::Musteri],
+            'kerem' => ['Kerem', 'Aksoy', 'kerem@evotel.test', Role::Musteri],
         ];
         foreach ($people as $key => [$first, $last, $email, $role]) {
-            $this->users[$key] = $this->c->users()->save(new User(null, $first, $last, $email, $hash, $role, UserStatus::Aktif, $this->now->modify('-60 days')));
+            $this->users[$key] = $this->c->users()->save(new User(null, $first, $last, $email, $hash, $role, UserStatus::Aktif, $this->now->modify('-400 days')));
         }
     }
 
@@ -164,11 +198,83 @@ final class DemoSeeder
             $this->c->properties()->setAmenities((int) $property->id, array_map(fn (string $n): int => $a[$n], $amenityNames));
             foreach ($units as [$unitName, $roomType, $capacity, $price]) {
                 $this->units[$key . ':' . $unitName] = $this->c->units()->save(new BookableUnit(null, (int) $property->id, $unitName, $roomType, $capacity, $price * 100, UnitStatus::Aktif));
+                $this->propertyKeyOfUnit[$key . ':' . $unitName] = $key;
             }
             $properties[$key] = $property;
         }
 
         return $properties;
+    }
+
+    /**
+     * FR-46 örnek verisi: sahneler bir kez çizilir (dış mekân gündüz/akşam ve iç mekânlar).
+     *
+     * @return array<string, string> "sahne" veya "sahne|aksam" => JPEG içeriği; GD yoksa veya kapalıysa boş
+     */
+    private function paintPictures(): array
+    {
+        if (!$this->c->settings->demoPhotos || !DemoPhotoPainter::available()) {
+            return [];
+        }
+        $painter = new DemoPhotoPainter();
+        $pictures = [];
+        foreach (DemoPhotoPainter::OUTDOOR as $scene) {
+            $pictures[$scene] = $painter->paint($scene);
+            $pictures[$scene . '|aksam'] = $painter->paint($scene, true);
+        }
+        foreach (DemoPhotoPainter::INDOOR as $scene) {
+            $pictures[$scene] = $painter->paint($scene);
+        }
+
+        return $pictures;
+    }
+
+    /**
+     * İlan başına 3 fotoğraf (gündüz, akşam, iç mekân); otel odalarına oda tipine göre birer fotoğraf.
+     *
+     * @param array<string, Property> $properties
+     * @param array<string, string> $pictures
+     */
+    private function seedPhotos(array $properties, array $pictures): int
+    {
+        if ($pictures === []) {
+            return 0;
+        }
+        $directory = $this->c->settings->uploadDir;
+        if (!is_dir($directory) && !@mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new RuntimeException('Fotoğraf klasörü oluşturulamadı: ' . $directory);
+        }
+        $count = 0;
+        $store = function (int $propertyId, ?int $unitId, string $picture, int $order) use ($directory, $pictures, &$count): void {
+            $bytes = $pictures[$picture];
+            $fileName = bin2hex(random_bytes(16)) . '.jpg';
+            if (file_put_contents($directory . DIRECTORY_SEPARATOR . $fileName, $bytes) === false) {
+                throw new RuntimeException('Fotoğraf yazılamadı: ' . $fileName);
+            }
+            $this->c->photos()->save(new Photo(null, $propertyId, $unitId, $fileName, 'image/jpeg', strlen($bytes), $order));
+            $count++;
+        };
+        $roomScene = [
+            RoomType::TekKisilik->value => 'oda-tek',
+            RoomType::CiftKisilik->value => 'oda-cift',
+            RoomType::Aile->value => 'oda-aile',
+            RoomType::Suit->value => 'oda-suit',
+        ];
+        foreach ($properties as $key => $property) {
+            [$outdoor, $indoor] = self::PHOTO_SCENES[$key];
+            $id = (int) $property->id;
+            $store($id, null, $outdoor, 1);
+            $store($id, null, $outdoor . '|aksam', 2);
+            $store($id, null, $indoor, 3);
+            $order = 4;
+            foreach ($this->units as $unitKey => $unit) {
+                if ($this->propertyKeyOfUnit[$unitKey] === $key && $property->type === PropertyType::Otel && isset($roomScene[$unit->roomType->value])) {
+                    $store($id, (int) $unit->id, $roomScene[$unit->roomType->value], $order++);
+                }
+            }
+        }
+
+        return $count;
     }
 
     /** @param array<string, Property> $properties */
@@ -217,17 +323,18 @@ final class DemoSeeder
 
     private function seedReservations(): int
     {
+        $done = ReservationStatus::Tamamlandi;
         /** @var list<array{string, string, int, int, int, ReservationStatus, bool, int|null}> $plan */
         $plan = [
             // [müşteri, birim, giriş (bugüne göre gün), gece, kişi, son durum, ödendi mi, puan]
-            ['ali', 'karadeniz:102', -20, 3, 2, ReservationStatus::Tamamlandi, true, 5],
-            ['can', 'karadeniz:201', -12, 3, 4, ReservationStatus::Tamamlandi, true, 4],
-            ['deniz', 'uzungol:Dağ evi', -30, 4, 5, ReservationStatus::Tamamlandi, true, 5],
-            ['burak', 'bogaz:Daire 2+1', -15, 2, 3, ReservationStatus::Tamamlandi, true, 4],
-            ['selin', 'kas:Villa', -40, 7, 4, ReservationStatus::Tamamlandi, true, 5],
-            ['ali', 'sultanahmet:Çift kişilik oda', -8, 2, 2, ReservationStatus::Tamamlandi, true, 3],
-            ['can', 'kapadokya:Taş ev', -25, 3, 2, ReservationStatus::Tamamlandi, true, 5],
-            ['deniz', 'gumushane:Çift kişilik', -5, 2, 2, ReservationStatus::Tamamlandi, true, null],
+            ['ali', 'karadeniz:102', -20, 3, 2, $done, true, 5],
+            ['can', 'karadeniz:201', -12, 3, 4, $done, true, 4],
+            ['deniz', 'uzungol:Dağ evi', -30, 4, 5, $done, true, 5],
+            ['burak', 'bogaz:Daire 2+1', -15, 2, 3, $done, true, 4],
+            ['selin', 'kas:Villa', -40, 7, 4, $done, true, 5],
+            ['ali', 'sultanahmet:Çift kişilik oda', -8, 2, 2, $done, true, 3],
+            ['can', 'kapadokya:Taş ev', -25, 3, 2, $done, true, 5],
+            ['deniz', 'gumushane:Çift kişilik', -5, 2, 2, $done, true, null],
             ['burak', 'karadeniz:102', 3, 3, 2, ReservationStatus::Onaylandi, true, null],
             ['selin', 'karadeniz:101', 1, 3, 1, ReservationStatus::Onaylandi, true, null],
             ['ali', 'bogaz:Daire 2+1', 10, 4, 2, ReservationStatus::Onaylandi, true, null],
@@ -238,12 +345,49 @@ final class DemoSeeder
             ['ali', 'karadeniz:201', 15, 3, 3, ReservationStatus::IptalEdildi, true, null],
             ['can', 'kapadokya:Taş ev', 12, 2, 2, ReservationStatus::Reddedildi, true, null],
             ['deniz', 'gumushane:Tek kişilik', 2, 1, 1, ReservationStatus::SuresiDoldu, false, null],
+            // Geçmiş konaklamalar ve yorumları (her ilana birden çok değerlendirme; geceler çakışmaz)
+            ['elif', 'karadeniz:101', -48, 2, 1, $done, true, 5],
+            ['emre', 'karadeniz:103', -63, 3, 2, $done, true, 4],
+            ['merve', 'karadeniz:201', -90, 4, 4, $done, true, 5],
+            ['okan', 'karadeniz:301 Süit', -120, 2, 2, $done, true, 3],
+            ['gizem', 'karadeniz:102', -150, 3, 2, $done, true, 4],
+            ['kerem', 'uzungol:Dağ evi', -70, 4, 5, $done, true, 5],
+            ['selin', 'uzungol:Dağ evi', -110, 3, 4, $done, true, 5],
+            ['elif', 'uzungol:Dağ evi', -160, 5, 6, $done, true, 4],
+            ['can', 'uzungol:Dağ evi', -220, 3, 3, $done, true, 5],
+            ['merve', 'bogaz:Daire 2+1', -55, 4, 2, $done, true, 5],
+            ['okan', 'bogaz:Daire 2+1', -95, 3, 3, $done, true, 4],
+            ['deniz', 'bogaz:Daire 2+1', -140, 2, 2, $done, true, 4],
+            ['kerem', 'bogaz:Daire 2+1', -200, 5, 4, $done, true, 3],
+            ['gizem', 'sultanahmet:Tek kişilik oda', -45, 2, 1, $done, true, 4],
+            ['emre', 'sultanahmet:Çift kişilik oda', -75, 3, 2, $done, true, 5],
+            ['burak', 'sultanahmet:Süit', -100, 2, 3, $done, true, 2],
+            ['elif', 'sultanahmet:Çift kişilik oda', -130, 2, 2, $done, true, 4],
+            ['merve', 'sultanahmet:Tek kişilik oda', -180, 3, 1, $done, true, 4],
+            ['ali', 'kaleici:Çift kişilik oda', -50, 4, 2, $done, true, 5],
+            ['okan', 'kaleici:Aile odası', -85, 5, 4, $done, true, 4],
+            ['gizem', 'kaleici:Çift kişilik oda', -125, 3, 2, $done, true, 5],
+            ['kerem', 'kaleici:Aile odası', -170, 4, 3, $done, true, 4],
+            ['deniz', 'kaleici:Çift kişilik oda', -240, 3, 2, $done, true, 5],
+            ['emre', 'kas:Villa', -80, 7, 4, $done, true, 5],
+            ['ali', 'kas:Villa', -135, 5, 3, $done, true, 5],
+            ['merve', 'kas:Villa', -190, 7, 5, $done, true, 4],
+            ['okan', 'kas:Villa', -260, 4, 2, $done, true, 5],
+            ['selin', 'kapadokya:Taş ev', -60, 3, 2, $done, true, 5],
+            ['gizem', 'kapadokya:Taş ev', -105, 2, 2, $done, true, 5],
+            ['emre', 'kapadokya:Taş ev', -145, 3, 3, $done, true, 4],
+            ['kerem', 'kapadokya:Taş ev', -185, 2, 2, $done, true, 5],
+            ['burak', 'kapadokya:Taş ev', -230, 4, 4, $done, true, 4],
+            ['emre', 'gumushane:Tek kişilik', -35, 3, 1, $done, true, 4],
+            ['elif', 'gumushane:Çift kişilik', -65, 2, 2, $done, true, 4],
+            ['okan', 'gumushane:Tek kişilik', -115, 5, 1, $done, true, 3],
+            ['merve', 'gumushane:Çift kişilik', -155, 2, 2, $done, true, 5],
         ];
         $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         $count = 0;
         foreach ($plan as $i => [$customerKey, $unitKey, $offset, $nights, $guests, $status, $paid, $rating]) {
             $unit = $this->units[$unitKey];
-            $property = $this->c->properties()->findById($unit->propertyId) ?? throw new \RuntimeException('İlan bulunamadı');
+            $property = $this->c->properties()->findById($unit->propertyId) ?? throw new RuntimeException('İlan bulunamadı');
             $range = new DateRange($this->today->modify(($offset >= 0 ? '+' : '') . $offset . ' days'), $this->today->modify(($offset + $nights >= 0 ? '+' : '') . ($offset + $nights) . ' days'));
             $createdAt = ($offset > 0 ? $this->now->modify('-2 days') : $range->checkIn->modify('-10 days')->setTime(10, 15))->modify('+' . $i . ' minutes');
             $holdHours = $property->bookingMode === BookingMode::Onayli ? 24 : 0;
@@ -309,17 +453,108 @@ final class DemoSeeder
             }
 
             if ($rating !== null) {
-                $comments = [
-                    5 => 'Her şey çok temiz ve ev sahibi çok ilgiliydi. Kesinlikle tekrar geleceğiz.',
-                    4 => 'Konum harika, odalar rahat. Kahvaltı biraz daha zengin olabilirdi.',
-                    3 => 'Fiyatına göre idare eder; oda beklediğimizden küçüktü.',
-                ];
-                $this->c->reviews()->save(new Review(null, $id, (int) $this->users[$customerKey]->id, $rating, $comments[$rating] ?? 'Güzel bir konaklamaydı.', ModerationStatus::Yayinda, $range->checkOut->setTime(15, 0)));
+                $comment = $this->reviewText($this->propertyKeyOfUnit[$unitKey], $rating);
+                $this->c->reviews()->save(new Review(null, $id, (int) $this->users[$customerKey]->id, $rating, $comment, ModerationStatus::Yayinda, $range->checkOut->setTime(15, 0)));
+                $this->reviewCount++;
             }
             $count++;
         }
 
         return $count;
+    }
+
+    /** İlana ve puana uygun, her seferinde farklı bir yorum metni. */
+    private function reviewText(string $propertyKey, int $rating): string
+    {
+        $texts = [
+            'karadeniz' => [
+                5 => [
+                    'Meydana yürüme mesafesinde, odalar tertemiz. Resepsiyon çok yardımcı oldu.',
+                    'Kahvaltıda Karadeniz lezzetleri vardı, ücretsiz otopark da büyük kolaylık. Tekrar geleceğiz.',
+                    'İş seyahati için ideal: sessiz oda, hızlı internet ve ilgili personel.',
+                ],
+                4 => [
+                    'Konum harika, odalar rahat. Kahvaltı biraz daha zengin olabilirdi.',
+                    'Ailecek kaldık; aile odası geniş ve kullanışlıydı. Asansör biraz yavaştı.',
+                    'Temiz ve düzenli bir otel; oda biraz küçüktü ama fiyatına göre iyi.',
+                ],
+                3 => ['Konum çok iyi ama sokak tarafındaki oda gece gürültülüydü.'],
+            ],
+            'uzungol' => [
+                5 => [
+                    'Sabah göl manzarasıyla uyanmak paha biçilemez. Şömine akşamları çok keyifliydi.',
+                    'Ev sahibi her soruya hızla döndü; ev tertemiz ve eksiksizdi.',
+                    'Kalabalık bir aile olarak rahat ettik, mutfakta ihtiyacımız olan her şey vardı.',
+                    'Kar manzarası eşliğinde şömine başında harika bir hafta sonu geçirdik.',
+                ],
+                4 => ['Ev ve manzara çok güzel; yalnızca yokuş yol araçla biraz zorlayıcı.'],
+            ],
+            'bogaz' => [
+                5 => ['Balkondan Boğaz manzarası nefes kesici. Metroya da yakın, her yere kolayca ulaştık.'],
+                4 => [
+                    'Daire temiz ve donanımlı; yatak odası biraz sıcaktı ama klima işini gördü.',
+                    'Bebek sahiline yürüme mesafesinde, kahvaltıyı sahilde yapmak harikaydı.',
+                    'Giriş talimatları çok netti, anahtar teslimi sorunsuz geçti.',
+                ],
+                3 => ['Manzara güzel ama binada asansör yok; bavullarla üçüncü kata çıkmak yorucuydu.'],
+            ],
+            'sultanahmet' => [
+                5 => ['Ayasofya\'ya beş dakika yürüme mesafesinde; terastaki kahvaltı unutulmazdı.'],
+                4 => [
+                    'Tarihi yarımadayı gezmek için mükemmel konum; odalar küçük ama çok şık.',
+                    'Personel güler yüzlü, oda temizdi. Kahvaltı çeşitliydi.',
+                    'Tek kişilik oda dar ama kısa bir şehir gezisi için yeterli ve temiz.',
+                ],
+                3 => ['Fiyatına göre idare eder; oda beklediğimizden küçüktü.'],
+                2 => ['Süitin kliması ilk gece çalışmadı, ancak ertesi gün düzeltildi. Konum iyi ama hizmet yavaştı.'],
+            ],
+            'kaleici' => [
+                5 => [
+                    'Avludaki havuz ve restore edilmiş konak çok etkileyici. Kaleiçi sokakları kapının önünde.',
+                    'Denize yürüyerek gittik; akşamları avluda oturmak çok huzurluydu.',
+                    'Oda tarihi dokusunu korumuş ama konforundan bir şey kaybetmemiş.',
+                ],
+                4 => [
+                    'Aile odası ferah, çocuklar havuzdan çıkmak istemedi. Yakında park yeri bulmak biraz zor.',
+                    'Güzel bir konak; kahvaltı lezzetli ama saat 10\'da bitiyor.',
+                ],
+            ],
+            'kas' => [
+                5 => [
+                    'Özel havuz ve deniz manzarası tam bir tatil hayali; villa fotoğraflardakinden de güzel.',
+                    'Bir hafta kaldık, haftalık indirim de güzel bir sürpriz oldu. Çok sakin bir koy.',
+                    'Mutfak eksiksiz; akşamları terasta gün batımını izlemek harikaydı.',
+                    'Köpeğimizle kabul edildiğimiz için çok mutlu olduk; bahçe geniş ve güvenli.',
+                ],
+                4 => ['Villa ve havuz harika; Kaş merkezine arabasız ulaşım biraz zor.'],
+            ],
+            'kapadokya' => [
+                5 => [
+                    'Terastan balonları izlemek için erkenden kalktık, kesinlikle değdi.',
+                    'Taş evin serinliği ve şömine birlikte çok özel bir atmosfer yarattı.',
+                    'Ev sahibi balon turu ayarlamamıza yardım etti; kahvaltı da çok güzeldi.',
+                    'Ürgüp merkezine yürüme mesafesinde, sakin ve otantik bir ev.',
+                ],
+                4 => [
+                    'Ev çok güzel ama banyo biraz küçük. Konum ve manzara her şeyi telafi ediyor.',
+                    'Kayaya oyulmuş oda ilginç bir deneyimdi; internet zaman zaman yavaşladı.',
+                ],
+            ],
+            'gumushane' => [
+                5 => ['Üniversiteye yürüme mesafesinde, temiz ve sessiz. Uzun süre kaldık, her şey yolundaydı.'],
+                4 => [
+                    'Ekonomik ve temiz bir otel; kahvaltı sade ama doyurucu.',
+                    'Şehir merkezine yakın, personel ilgili. Odada çalışma masası olması iyi oldu.',
+                ],
+                3 => ['Fiyatı uygun ama oda biraz eski; ısıtma geç açıldı.'],
+            ],
+        ];
+        $pool = $texts[$propertyKey][$rating] ?? ['Güzel bir konaklamaydı.'];
+        $cursor = $propertyKey . ':' . $rating;
+        $index = $this->textCursor[$cursor] ?? 0;
+        $this->textCursor[$cursor] = $index + 1;
+
+        return $pool[$index % count($pool)];
     }
 
     private function seedExtras(): void
@@ -332,21 +567,18 @@ final class DemoSeeder
         $notify('deniz', 'tamamlandi', 'Gümüşhane Şehir Oteli konaklamanız tamamlandı. Deneyiminizi puanlayabilirsiniz.', 120);
         $notify('ali', 'iptal', 'Karadeniz Otel rezervasyonunuz iptal edildi; iade simüle olarak işlendi.', 60 * 24);
 
-        $this->c->complaints()->save(new Complaint(
+        // Şikâyet yönetim ekibinin Şikâyetler kutusuna düşer; yöneticiye bildirim gider (FR-27).
+        $complaint = $this->c->complaints()->save(new Complaint(
             null,
             (int) $this->users['ali']->id,
-            null,
+            $this->units['sultanahmet:Süit']->propertyId,
             null,
             'Sultanahmet Butik Otel\'de kaldığım odanın kliması çalışmıyordu; resepsiyon ilgilenmedi.',
             ComplaintStatus::Yeni,
             null,
             $this->now->modify('-3 days'),
         ));
-        // İlan bağlantısı: Sultanahmet
-        foreach ($this->c->complaints()->all() as $complaint) {
-            $complaint->propertyId = $this->units['sultanahmet:Süit']->propertyId;
-            $this->c->complaints()->save($complaint);
-        }
+        $notify('yonetici', 'sikayet', 'Yeni şikâyet #' . $complaint->id . ': Sultanahmet Butik Otel. Yönetim → Şikâyetler sayfasından inceleyin.', 60 * 24 * 3);
     }
 
     private function audit(?int $actorId, int $reservationId, ?string $old, string $new, string $reason, DateTimeImmutable $at): void

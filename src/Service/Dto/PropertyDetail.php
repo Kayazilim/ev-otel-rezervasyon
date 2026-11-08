@@ -18,6 +18,9 @@ final class PropertyDetail
      * @param list<Photo> $photos
      * @param list<Amenity> $amenities
      * @param list<array{rating: int, comment: string, author: string, date: \DateTimeImmutable}> $reviews
+     * @param array<int, int> $ratingDistribution puan (5'ten 1'e) => yayındaki yorum sayısı
+     * @param array<int, int> $unitPhotos oda/birim id => o odanın ilk fotoğrafı (oda tablosundaki küçük görsel)
+     * @param list<Photo> $gallery galeri: ilanın kendi fotoğrafları (odaya bağlı olmayanlar; yoksa tümü)
      */
     public function __construct(
         public readonly Property $property,
@@ -31,6 +34,9 @@ final class PropertyDetail
         public readonly bool $isFavorite,
         public readonly string $policyText,
         public readonly int $minPrice,
+        public readonly array $ratingDistribution = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0],
+        public readonly array $unitPhotos = [],
+        public readonly array $gallery = [],
     ) {
     }
 }

@@ -50,7 +50,7 @@ ev-otel-rezervasyon/
 │   │                    Complaint, AuditLog, PasswordResetToken, LoginAttempt + enum'lar
 │   ├── Support/         DateRange, Money, Decimal, Clock, Logger, Paginator
 │   ├── Exception/
-│   └── Seed/            DemoSeeder
+│   └── Seed/            DemoSeeder, DemoPhotoPainter (örnek veri fotoğraflarını GD ile çizer)
 ├── views/
 ├── storage/             data/ (JSON tablolar), uploads/, logs/, mail/, backups/ (son 7 yedek)
 ├── database/            migrations/ (001–004 .sql, 3NF şema), sorgular/ (JOIN'li rapor sorgusu)
@@ -899,6 +899,9 @@ Aşama 3'te aynı arayüzler PDO ile yazıldı: `beginTransaction()`, `SELECT ..
 | Rapor dönemi (BR-30) | Başlangıç ve bitiş günü dahildir; aktif birim = durumu aktif ve ilanı aktif/pasif olan birim. | BR-30'da dönem sınırı ve "aktif birim" tanımlı değildi. |
 | Parola sıfırlama e-postası | Varsayılan: e-posta servisi olmadığı için ileti `storage/mail/` klasörüne yazılır ve geliştirme ortamında `/posta-kutusu` sayfasında görünür (yalnızca yerel istek; `EVOTEL_POSTA_KUTUSU=0` ile kapanır; `Cache-Control: no-store`). İsteğe bağlı: `config/yerel.php` ile gerçek gönderim (`SmtpMailer`: STARTTLS veya TLS, AUTH PLAIN/LOGIN, UTF-8 konu; harici kütüphane yok). İkisi aynı `MailerInterface`'i uygular (Strategy); `AuthService` değişmez. | SRS 2.5: e-posta harici servise bağlıdır; FR-04 "yapılandırılmış doğrulama yöntemi"ne izin verir. Posta kutusunda sıfırlama jetonları bulunduğu için sayfa uzaktan açılmaz. |
 | Hesap varlığı (FR-04) | Kayıtlı olmayan adres için de aynı mesaj ve aynı yönlendirme verilir, ileti gönderilmez. Gönderim başarısız olursa "gönderildi" denmez: 503 gösterilir, olay günlüğe yazılır (`eposta_gonderilemedi`). | OWASP parola sıfırlama önerisi: hesabın var olup olmadığı yanıttan anlaşılmamalı. Sınırlama: SMTP kipinde gönderim eşzamanlıdır; yanıt süresindeki fark hesap varlığını sezdirebilir. Gerçek kullanımda gönderim kuyruğa alınmalıdır. |
+| Şikâyet akışı (FR-27) | Şikâyet "Yeni" durumuyla Yönetim → Şikâyetler kutusuna düşer ve aktif yöneticilere bildirim gider. Yönetici durumu veya notu güncelleyince şikâyet sahibine bildirim gider; kullanıcı şikâyetini Şikâyetlerim (`/sikayetlerim`) sayfasından izler. Formda ilan listeden seçilir. | FR-27 ölçütü yönetici panelinde listelemeyi ister; kullanıcının şikâyetin nereye gittiğini ve sonucunu görebilmesi için bildirim ve izleme sayfası eklendi. Şikâyet ilan sahibine değil yönetime gider. |
+| Arayüz teması | Resmi ve minimalist tema: kırık beyaz zemin, ince kenarlıklar, tek vurgu rengi (koyu yeşil), başlıklarda serif (Source Serif 4), metinde Inter. Değerler Lovable'da hazırlanan tasarım prototipinden alınıp Bootstrap 5 değişkenleriyle uygulandı (`public/assets/app.css`). | Ders kuralı: framework yasak, arayüz HTML/CSS/Bootstrap; Lovable'ın ürettiği React kodu kullanılmaz, yalnızca tasarım kaynağıdır. |
+| Örnek veri fotoğrafları (FR-46) | İlan (gündüz, akşam, iç mekân) ve otel odası fotoğrafları örnek veri yüklenirken `DemoPhotoPainter` ile GD üzerinden çizilir ve `storage/uploads`'a yazılır (36 fotoğraf). `demo_photos` ayarıyla kapanır; testlerde yalnızca fotoğraf testi açar. | Ders kuralı "resim/ikon dosyası yok" ile FR-46 (ilan fotoğrafı) birlikte sağlanır: depoda resim dosyası yoktur, fotoğraflar ilan sahibinin yüklediği gibi veridir. |
 | Profil alanları (SRS 11.5 açık karar) | Yalnızca ad, soyad ve parola değiştirilebilir; e-posta ve rol değiştirilemez. | SRS 11.5'teki öneri uygulandı. |
 | Yorum denetimi durumları | `yayinda`, `incelemede`, `gizlendi`. | ER'de değerler belirtilmemişti. |
 

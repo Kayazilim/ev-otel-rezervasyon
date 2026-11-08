@@ -34,6 +34,8 @@ $ayarlar = [
     'log_file' => $kok . '/storage/logs/app.log',
     'mail_dir' => $kok . '/storage/mail',      // simüle e-posta kutusu (parola sıfırlama)
     'views_dir' => $kok . '/views',
+    // Örnek veride ilan ve oda fotoğrafları: depoda resim dosyası yoktur, GD ile çizilip storage/uploads'a yazılır (GD yoksa atlanır).
+    'demo_photos' => true,
 
     // FR-04 e-postası: 'dosya' (varsayılan; ileti storage/mail klasörüne yazılır, gerçek adrese gitmez)
     // veya 'smtp' (gerçek gönderim, ör. Gmail uygulama şifresiyle). SMTP değerleri config/yerel.php'ye yazılır.

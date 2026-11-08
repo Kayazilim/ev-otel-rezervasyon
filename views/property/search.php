@@ -15,9 +15,12 @@ $summary = ($c->city !== '' ? $c->city : 'Tüm şehirler')
     . ($result->range !== null ? ' · ' . $result->range : '')
     . ' · ' . $c->guests . ' kişi · ' . ($c->type?->label() ?? 'Tümü');
 ?>
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h1 class="h5 mb-0"><?= e($summary) ?></h1>
-    <button class="btn btn-success btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#arama-formu" aria-expanded="false">Aramayı değiştir</button>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 sayfa-baslik">
+    <div>
+        <h1>Arama sonuçları</h1>
+        <p><?= e($summary) ?></p>
+    </div>
+    <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#arama-formu" aria-expanded="false">Aramayı değiştir</button>
 </div>
 
 <form method="get" action="<?= e($view->url('/ara')) ?>" id="filtre-formu" novalidate>
@@ -41,7 +44,7 @@ $summary = ($c->city !== '' ? $c->city : 'Tüm şehirler')
                     <input type="number" class="form-control<?= $view->invalid($result->errors, 'kisi') ?>" id="kisi" name="kisi" min="1" max="20" value="<?= (int) $c->guests ?>">
                 </div>
                 <div class="col-6 col-md-2">
-                    <button type="submit" class="btn btn-success w-100">ARA</button>
+                    <button type="submit" class="btn btn-primary w-100">Ara</button>
                 </div>
             </div>
         </div>
@@ -51,7 +54,7 @@ $summary = ($c->city !== '' ? $c->city : 'Tüm şehirler')
         <aside class="col-12 col-lg-3">
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <h2 class="h6 fw-bold">FİLTRELER</h2>
+                    <h2 class="h5 mb-3">Filtreler</h2>
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Gecelik fiyat aralığı (TL)</label>
                         <div class="input-group input-group-sm">
@@ -96,7 +99,7 @@ $summary = ($c->city !== '' ? $c->city : 'Tüm şehirler')
                             </div>
                         <?php endforeach; ?>
                     </fieldset>
-                    <button type="submit" class="btn btn-success w-100">Filtreleri uygula</button>
+                    <button type="submit" class="btn btn-primary w-100">Filtreleri uygula</button>
                     <a class="btn btn-link btn-sm w-100 mt-1" href="<?= e($view->url('/ara', ['konum' => $c->city, 'giris' => $c->checkIn, 'cikis' => $c->checkOut, 'kisi' => $c->guests])) ?>">Filtreleri temizle</a>
                 </div>
             </div>

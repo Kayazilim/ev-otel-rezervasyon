@@ -66,6 +66,7 @@ return static function (Router $r): void {
     $r->post('/profil/parola', [ProfileController::class, 'changePassword'], 'auth');
     $r->get('/sikayet', [ComplaintController::class, 'create'], 'auth');
     $r->post('/sikayet', [ComplaintController::class, 'store'], 'auth');
+    $r->get('/sikayetlerim', [ComplaintController::class, 'index'], 'auth');           // gönderilen şikâyetlerin durumu
 
     // Yalnızca ilan sahibi
     $r->get('/panel', [HostController::class, 'dashboard'], $host);

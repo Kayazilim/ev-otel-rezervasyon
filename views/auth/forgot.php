@@ -19,7 +19,7 @@
                     <p class="small text-body-secondary">Bağlantı birkaç dakika içinde gelmezse istenmeyen (spam) klasörünü de kontrol edin.</p>
                 <?php elseif ($mailInbox ?? false): ?>
                     <div class="alert alert-info small py-2">Bu prototipte e-posta gerçek adrese gitmez: gönderilen iletiler
-                        <a href="<?= e($view->url('/posta-kutusu')) ?>" class="alert-link">📬 Posta kutusu</a> sayfasında görünür.
+                        <a href="<?= e($view->url('/posta-kutusu')) ?>" class="alert-link">Posta kutusu</a> sayfasında görünür.
                         Kendi adresinizle denemek için önce o adresle kayıt olun.</div>
                 <?php else: ?>
                     <div class="alert alert-info small py-2">Bu prototipte e-posta gerçek adrese gitmez: ileti sunucudaki <code>storage/mail</code> klasörüne metin dosyası olarak yazılır.
