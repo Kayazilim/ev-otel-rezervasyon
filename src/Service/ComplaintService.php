@@ -92,6 +92,9 @@ final class ComplaintService
             $complaint = $this->complaints->findById($complaintId) ?? throw new NotFoundException('Şikâyet bulunamadı.');
             $old = $complaint->status->value;
             $complaint->status = $status;
+            if (Text::length($note) > 2000) {
+                throw ValidationException::single('not', 'Yönetici notu en çok 2000 karakter olabilir.');
+            }
             $complaint->adminNote = trim($note) !== '' ? trim($note) : $complaint->adminNote;
             $this->complaints->save($complaint);
             $this->audit->log($adminId, 'complaint', $complaintId, 'sikayet_guncellendi', $old, $status->value, $complaint->adminNote);

@@ -7,6 +7,7 @@ namespace App\Repository;
 use App\Model\Reservation;
 use App\Model\ReservationCharge;
 use App\Model\ReservationNight;
+use App\Model\ReservationRevenue;
 use App\Model\ReservationStatus;
 use App\Support\DateRange;
 use DateTimeImmutable;
@@ -93,4 +94,14 @@ interface ReservationRepositoryInterface
      * ek iş gerekmez; çağrının işlem içinde yapıldığı denetlenir.
      */
     public function lockUnit(int $unitId): void;
+
+    /**
+     * Doluluk ve gelir raporunun veri kaynağı (FR-30, BR-30): dönemle ([giriş, çıkış) yarı açık) kesişen
+     * rezervasyonlar ve her birinin tahsil edilmiş ödeme / iade toplamı.
+     * SQL karşılığı: reservations ⋈ bookable_units ⋈ properties ⟕ payments, GROUP BY rezervasyon.
+     * $ownerId verilirse yalnızca o ilan sahibinin ilanları (yönetici için null).
+     *
+     * @return list<ReservationRevenue>
+     */
+    public function reportRows(?int $ownerId, DateRange $period): array;
 }

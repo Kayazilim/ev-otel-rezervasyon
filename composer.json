@@ -1,6 +1,6 @@
 {
     "name": "ogrenci/ev-otel-rezervasyon",
-    "description": "Otel / Kiralık Ev Rezervasyon Sistemi - PHP 8.2, katmanlı mimari (Aşama 2: JSON depo)",
+    "description": "Otel / Kiralık Ev Rezervasyon Sistemi - PHP 8.2, katmanlı mimari, frameworksüz (Aşama 2: JSON depo, Aşama 3: PDO + MySQL)",
     "type": "project",
     "license": "proprietary",
     "require": {
@@ -13,6 +13,9 @@
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^11.0",
         "squizlabs/php_codesniffer": "^3.10"
+    },
+    "suggest": {
+        "ext-pdo_mysql": "Aşama 3 MySQL deposu için (EVOTEL_STORAGE=mysql)"
     },
     "autoload": {
         "psr-4": {
@@ -33,12 +36,31 @@
             "php -S localhost:8000 -t public public/index.php"
         ],
         "seed": "php bin/seed.php --force",
+        "migrate": "php bin/migrate.php",
+        "migrate:fresh": "php bin/migrate.php --fresh --seed",
         "gorev": "php bin/gorev.php",
+        "yedek": "php bin/yedek.php",
         "test": [
             "Composer\\Config::disableProcessTimeout",
             "phpunit"
         ],
         "test:hizli": "phpunit --exclude-group eszamanlilik",
+        "test:mysql": [
+            "Composer\\Config::disableProcessTimeout",
+            "@putenv EVOTEL_TEST_STORAGE=mysql",
+            "phpunit"
+        ],
+        "kapsam": [
+            "Composer\\Config::disableProcessTimeout",
+            "@putenv XDEBUG_MODE=coverage",
+            "phpunit --coverage-text --only-summary-for-coverage-text --coverage-html coverage"
+        ],
+        "izlenebilirlik": [
+            "Composer\\Config::disableProcessTimeout",
+            "@putenv XDEBUG_MODE=coverage",
+            "phpunit --log-junit storage/logs/test-sonuc.xml --coverage-clover storage/logs/kapsam.xml",
+            "php bin/izlenebilirlik.php --sonuc=storage/logs/test-sonuc.xml --kapsam=storage/logs/kapsam.xml"
+        ],
         "analiz": "phpstan analyse --memory-limit=1G",
         "stil": "phpcs",
         "stil:duzelt": "phpcbf"

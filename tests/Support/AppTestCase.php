@@ -41,12 +41,23 @@ abstract class AppTestCase extends TestCase
     protected FrozenClock $clock;
     protected string $dir;
 
+    private static bool $mysqlSchemaReady = false;
+
     protected function setUp(): void
     {
         $this->dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'evotel-test-' . bin2hex(random_bytes(6));
         mkdir($this->dir . '/data', 0777, true);
         $this->clock = new FrozenClock('2026-11-01 10:00:00');
         $this->c = new Container($this->settings(), $this->clock);
+        if ($this->c->settings->usesMySql()) {
+            // Şema süreç başına bir kez sıfırdan kurulur (migration'lar da böylece test edilir); her test boş tablolarla başlar.
+            if (!self::$mysqlSchemaReady) {
+                $this->c->mysqlDatabase()->createDatabaseIfMissing();
+                $this->c->migrator()->fresh();
+                self::$mysqlSchemaReady = true;
+            }
+            $this->c->resetStorage();
+        }
     }
 
     protected function tearDown(): void
@@ -56,13 +67,22 @@ abstract class AppTestCase extends TestCase
 
     protected function settings(): Settings
     {
-        return new Settings(
-            dataDir: $this->dir . '/data',
-            uploadDir: $this->dir . '/uploads',
-            logFile: '',
-            mailDir: $this->dir . '/mail',
-            viewsDir: dirname(__DIR__, 2) . '/views',
-        );
+        return TestSettings::create($this->dir);
+    }
+
+    protected function usesMySql(): bool
+    {
+        return $this->c->settings->usesMySql();
+    }
+
+    /** Tablonun depodaki ham içeriği (JSON dosyası veya MySQL satırları); "düz metin saklanmıyor" kontrolleri için. */
+    protected function rawTable(string $table): string
+    {
+        if ($this->usesMySql()) {
+            return (string) json_encode($this->c->mysqlDatabase()->select('SELECT * FROM `' . $table . '`'), JSON_UNESCAPED_UNICODE);
+        }
+
+        return (string) file_get_contents($this->dir . '/data/' . $table . '.json');
     }
 
     public static function removeDirectory(string $dir): void

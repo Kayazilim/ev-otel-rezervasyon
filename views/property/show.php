@@ -159,7 +159,7 @@ $keep = ['birim' => $selectedUnit?->id, 'giris' => $form['giris'], 'cikis' => $f
                         </div>
                         <div id="fiyat-onizleme" class="my-2"></div>
                         <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-outline-success" id="fiyat-goster">Fiyatı gör (sayfa yenilenmeden)</button>
+                            <button type="button" class="btn btn-outline-success" id="fiyat-goster">Müsaitlik ve fiyatı gör (sayfa yenilenmeden)</button>
                             <button type="submit" class="btn btn-success btn-lg fw-semibold">REZERVASYON YAP</button>
                         </div>
                         <?php if ($currentUser === null): ?>
@@ -167,11 +167,55 @@ $keep = ['birim' => $selectedUnit?->id, 'giris' => $form['giris'], 'cikis' => $f
                         <?php endif; ?>
                     </form>
                     <script>
-                    // Bonus: form sayfa yenilenmeden gönderilir; PHP fiyat dökümünü üretir.
+                    // Etkileşim standardı: JSON döndüren AJAX uç noktası (/api/musaitlik). Form sayfa yenilenmeden gönderilir.
+                    // Gelen metinler textContent ile yazılır; HTML olarak yorumlanmaz (XSS koruması).
+                    const ILAN_ADRESI = '<?= e($view->url('/ilan/' . $p->id)) ?>';
+                    function oge(etiket, sinif, metin) {
+                        const el = document.createElement(etiket);
+                        if (sinif) { el.className = sinif; }
+                        if (metin !== undefined) { el.textContent = metin; }
+                        return el;
+                    }
+                    function satir(govde, sol, sag, sinif) {
+                        const tr = oge('tr', sinif || '');
+                        tr.append(oge('td', 'small', sol), oge('td', '', sag));
+                        govde.append(tr);
+                    }
                     async function fiyatGetir() {
+                        const alan = document.getElementById('fiyat-onizleme');
                         const parametreler = new URLSearchParams(new FormData(document.getElementById('rezervasyon-formu')));
-                        const yanit = await fetch('<?= e($view->url('/parca/fiyat')) ?>?' + parametreler.toString());
-                        document.getElementById('fiyat-onizleme').innerHTML = await yanit.text();
+                        const yanit = await fetch('<?= e($view->url('/api/musaitlik')) ?>?' + parametreler.toString(), {headers: {'Accept': 'application/json'}});
+                        const veri = await yanit.json();
+                        alan.replaceChildren();
+                        if (!veri.basarili) {
+                            const kutu = oge('div', 'alert alert-warning py-2 mb-0');
+                            Object.values(veri.hatalar || {hata: veri.hata}).forEach(m => kutu.append(oge('div', '', '⚠️ ' + m)));
+                            alan.append(kutu);
+                            return;
+                        }
+                        const durum = oge('div', 'alert py-2 mb-2 ' + (veri.musait ? 'alert-success' : 'alert-danger'),
+                            veri.musait ? '✅ Bu tarihler şu an müsait. Kesin karar onay anında verilir.' : '❌ Seçtiğiniz tarihler müsait değil.');
+                        if (!veri.musait && veri.alternatifler.length > 0) {
+                            const liste = oge('ul', 'small mb-0 mt-1');
+                            veri.alternatifler.forEach(function (alt) {
+                                const q = new URLSearchParams({birim: veri.birim.id, giris: alt.giris, cikis: alt.cikis, kisi: veri.kisi});
+                                const a = oge('a', '', alt.metin);
+                                a.href = ILAN_ADRESI + '?' + q.toString();
+                                const li = oge('li');
+                                li.append(a);
+                                liste.append(li);
+                            });
+                            durum.append(oge('div', 'small mt-1', 'Yakın müsait tarihler:'), liste);
+                        }
+                        const tablo = oge('table', 'table table-sm dokum mb-1');
+                        const govde = oge('tbody');
+                        veri.geceler.forEach(g => satir(govde, g.aciklama, g.metin));
+                        satir(govde, veri.gece + ' gece konaklama', veri.konaklama_toplami.metin, 'fw-semibold');
+                        if (veri.indirim) { satir(govde, veri.indirim.aciklama, veri.indirim.metin, 'text-success'); }
+                        veri.ek_kalemler.forEach(k => satir(govde, k.aciklama, k.metin));
+                        satir(govde, 'TOPLAM', veri.toplam.metin, 'table-light fw-bold');
+                        tablo.append(govde);
+                        alan.append(durum, tablo, oge('p', 'small text-body-secondary mb-0', veri.iptal_kosulu));
                     }
                     document.getElementById('fiyat-goster').addEventListener('click', fiyatGetir);
                     <?php if ($form['giris'] !== '' && $form['cikis'] !== ''): ?>fiyatGetir();<?php endif; ?>

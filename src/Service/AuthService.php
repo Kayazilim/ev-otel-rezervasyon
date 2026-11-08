@@ -49,8 +49,8 @@ final class AuthService
         if (trim($lastName) === '' || Text::length($lastName) > 50) {
             $errors['soyad'] = 'Soyad zorunludur (en çok 50 karakter).';
         }
-        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            $errors['eposta'] = 'Geçerli bir e-posta adresi girin.';
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || strlen($email) > 254) {
+            $errors['eposta'] = 'Geçerli bir e-posta adresi girin (en çok 254 karakter).';
         }
         if (($passwordError = $this->passwordError($password)) !== null) {
             $errors['parola'] = $passwordError;
@@ -84,6 +84,9 @@ final class AuthService
     public function login(string $email, string $password): User
     {
         $email = Text::lower(trim($email));
+        if ($email === '' || strlen($email) > 254) {
+            throw ValidationException::single('giris', 'E-posta veya parola hatalı.');
+        }
         $now = $this->clock->now();
 
         // Hata durumunda da sayaç yazılsın diye işlem hata atmaz; mesajı döndürür, hata işlem dışında atılır.

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controller\AdminController;
+use App\Controller\ApiController;
 use App\Controller\AuthController;
 use App\Controller\ComplaintController;
 use App\Controller\HomeController;
@@ -30,7 +31,7 @@ return static function (Router $r): void {
     $r->get('/parca/arama', [PropertyController::class, 'searchFragment']);            // bonus: canlı arama
     $r->get('/ilan/{id}', [PropertyController::class, 'show']);
     $r->get('/parca/takvim', [PropertyController::class, 'calendarFragment']);         // kısmi yenileme
-    $r->get('/parca/fiyat', [PropertyController::class, 'priceFragment']);            // bonus: sayfa yenilemeden form
+    $r->get('/api/musaitlik', [ApiController::class, 'availability']);             // JSON döndüren AJAX uç noktası
     $r->get('/foto/{id}', [PropertyController::class, 'photo']);
     $r->get('/giris', [AuthController::class, 'showLogin']);
     $r->post('/giris', [AuthController::class, 'login']);

@@ -12,8 +12,11 @@ use App\Support\DateRange;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /** T-14 (SRS 4.11, AC-26 - AC-28): iade matrisi, eşik günleri ve politika anlık görüntüsü. */
+#[Group('T-14')]
+#[Group('FR-45')]
 final class RefundServiceTest extends TestCase
 {
     private const PAID = 952380; // 9.523,80 TL
@@ -62,6 +65,8 @@ final class RefundServiceTest extends TestCase
     }
 
     #[DataProvider('thresholds')]
+    #[Group('AC-26')]
+    #[Group('BR-17')]
     public function testThresholdDays(CancellationPolicy $policy, int $daysLeft, int $percent): void
     {
         $today = new DateTimeImmutable('2026-11-01');
@@ -76,6 +81,7 @@ final class RefundServiceTest extends TestCase
         self::assertLessThanOrEqual(self::PAID, $quote->refund, 'İade ödenen tutarı aşamaz');
     }
 
+    #[Group('BR-27')]
     public function testSrsExampleAmounts(): void
     {
         $today = new DateTimeImmutable('2026-11-01');
@@ -88,6 +94,7 @@ final class RefundServiceTest extends TestCase
         self::assertSame([0, self::PAID], [$strict10->refund, $strict10->deduction]);
     }
 
+    #[Group('BR-18')]
     public function testCheckInDayAndFinalStatesCannotBeCancelled(): void
     {
         $today = new DateTimeImmutable('2026-11-01');
@@ -99,6 +106,7 @@ final class RefundServiceTest extends TestCase
         self::assertFalse($refunds->quoteCustomerCancellation($completed, self::PAID, $today)->allowed, 'son durum');
     }
 
+    #[Group('AC-27')]
     public function testUnpaidPendingCancellationHasNoRefundOrDeduction(): void
     {
         $quote = (new RefundService())->quoteCustomerCancellation(
@@ -111,6 +119,8 @@ final class RefundServiceTest extends TestCase
         self::assertSame([0, 0], [$quote->refund, $quote->deduction]);
     }
 
+    #[Group('BR-29')]
+    #[Group('AC-28')]
     public function testSnapshotPolicyIsUsedNotTheCurrentPropertyPolicy(): void
     {
         // Rezervasyon Esnek politikayla yapılmış; ilan sonradan Katı'ya geçse de hesap Esnek'e göre (AC-28)
@@ -123,6 +133,8 @@ final class RefundServiceTest extends TestCase
         self::assertSame(100, $quote->percent);
     }
 
+    #[Group('BR-28')]
+    #[Group('AC-27')]
     public function testFullRefundForHostRejectAdminCancelAndExpiry(): void
     {
         $quote = (new RefundService())->fullRefund(self::PAID);

@@ -65,6 +65,12 @@ final class ReservationService
     ) {
     }
 
+    /** Birimin ait olduğu ilan (hata sonrası ilan sayfasına dönmek için); birim yoksa null. */
+    public function propertyIdOfUnit(int $unitId): ?int
+    {
+        return $this->units->findById($unitId)?->propertyId;
+    }
+
     /** Formun tek kullanımlık anahtarı (FR-35). */
     public function newIdempotencyKey(): string
     {
@@ -118,6 +124,10 @@ final class ReservationService
 
         try {
             return $this->atomic(function () use ($request): CreateReservationResult {
+                // SRS 4.5 adım 1: önce birim satırı kilitlenir (MySQL: SELECT ... FOR UPDATE). Aynı birime gelen
+                // eşzamanlı istekler (aynı formun çift gönderimi dahil) buradan sonrasını sırayla yürütür.
+                $this->reservations->lockUnit($request->unitId);
+
                 // A4: aynı form ikinci kez gönderildiyse yeni kayıt açılmaz, mevcut rezervasyon gösterilir.
                 $existing = $this->reservations->findByIdempotencyKey($request->idempotencyKey);
                 if ($existing !== null) {
@@ -167,7 +177,7 @@ final class ReservationService
                         $now,
                     ),
                     $quote->toCharges(),
-                    $request->range->nightDates(),
+                    $this->conflicts->reserveNights($request->range),
                 );
 
                 $this->audit->log(
@@ -264,6 +274,9 @@ final class ReservationService
     public function cancelByCustomer(string $number, int $customerId, string $reason = ''): Reservation
     {
         $reason = trim($reason) !== '' ? trim($reason) : 'Müşteri iptali';
+        if (Text::length($reason) > 500) {
+            throw ValidationException::single('neden', 'İptal nedeni en çok 500 karakter olabilir.');
+        }
         $outcome = $this->atomic(function () use ($number, $customerId, $reason): Reservation|string {
             $reservation = $this->findOwned($number, $customerId);
             if ($reservation->status === ReservationStatus::Beklemede && !$this->conflicts->isBlocking($reservation)) {
@@ -335,8 +348,8 @@ final class ReservationService
     public function reject(string $number, int $hostId, string $reason): Reservation
     {
         $reason = trim($reason);
-        if (Text::length($reason) < 3) {
-            throw ValidationException::single('neden', 'Ret nedeni yazmalısınız.');
+        if (Text::length($reason) < 3 || Text::length($reason) > 500) {
+            throw ValidationException::single('neden', 'Ret nedeni yazmalısınız (3-500 karakter).');
         }
         $outcome = $this->atomic(function () use ($number, $hostId, $reason): Reservation|string {
             [$reservation, , $property] = $this->loadForHost($number, $hostId);

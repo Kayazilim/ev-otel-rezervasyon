@@ -10,6 +10,7 @@ use App\Exception\ValidationException;
 use App\Model\Photo;
 use App\Model\Property;
 use App\Model\PropertyStatus;
+use App\Repository\BookableUnitRepositoryInterface;
 use App\Repository\PhotoRepositoryInterface;
 use App\Repository\PropertyRepositoryInterface;
 use App\Repository\TransactionManagerInterface;
@@ -34,6 +35,7 @@ final class PhotoService
     public function __construct(
         private readonly PhotoRepositoryInterface $photos,
         private readonly PropertyRepositoryInterface $properties,
+        private readonly BookableUnitRepositoryInterface $units,
         private readonly TransactionManagerInterface $tx,
         private readonly string $uploadDir,
         private readonly int $maxBytes,
@@ -50,9 +52,12 @@ final class PhotoService
     /**
      * @param array<string, mixed> $file $_FILES['foto'] girdisi (controller iletir)
      */
-    public function upload(int $ownerId, int $propertyId, array $file): Photo
+    public function upload(int $ownerId, int $propertyId, array $file, ?int $unitId = null): Photo
     {
         $property = $this->owned($ownerId, $propertyId);
+        if ($unitId !== null && $this->units->findById($unitId)?->propertyId !== $propertyId) {
+            throw ValidationException::single('birim', 'Seçilen oda bu ilana ait değil.');
+        }
         $error = is_int($file['error'] ?? null) ? $file['error'] : UPLOAD_ERR_NO_FILE;
         if ($error === UPLOAD_ERR_INI_SIZE || $error === UPLOAD_ERR_FORM_SIZE) {
             throw ValidationException::single('foto', 'Dosya en çok 2 MB olabilir.');
@@ -95,11 +100,11 @@ final class PhotoService
         }
 
         try {
-            return $this->tx->transactional(function () use ($property, $fileName, $mime, $size): Photo {
+            return $this->tx->transactional(function () use ($property, $fileName, $mime, $size, $unitId): Photo {
                 $existing = $this->photos->findByProperty((int) $property->id);
                 $order = $existing === [] ? 1 : max(array_map(fn (Photo $p): int => $p->sortOrder, $existing)) + 1;
 
-                return $this->photos->save(new Photo(null, (int) $property->id, null, $fileName, $mime, $size, $order));
+                return $this->photos->save(new Photo(null, (int) $property->id, $unitId, $fileName, $mime, $size, $order));
             });
         } catch (\Throwable $e) {
             @unlink($target);

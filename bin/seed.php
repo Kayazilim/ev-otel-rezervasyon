@@ -13,7 +13,7 @@ $config = require dirname(__DIR__) . '/config/app.php';
 $container = App\Core\Container::fromConfig($config);
 
 $force = in_array('--force', $argv, true);
-if (!$force && is_file($container->settings->dataDir . '/users.json')) {
+if (!$force && !$container->needsDemoData()) {
     fwrite(STDERR, "Veri zaten var. Silip yeniden yüklemek için: php bin/seed.php --force\n");
     exit(1);
 }

@@ -94,8 +94,8 @@ final class ReviewService
     public function moderate(int $adminId, int $reviewId, ModerationStatus $status, string $reason): Review
     {
         $reason = trim($reason);
-        if (Text::length($reason) < 5) {
-            throw ValidationException::single('neden', 'Neden en az 5 karakter olmalıdır.');
+        if (Text::length($reason) < 5 || Text::length($reason) > 500) {
+            throw ValidationException::single('neden', 'Neden 5-500 karakter olmalıdır.');
         }
 
         return $this->tx->transactional(function () use ($adminId, $reviewId, $status, $reason): Review {

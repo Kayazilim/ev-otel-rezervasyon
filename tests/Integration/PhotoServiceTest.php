@@ -9,8 +9,12 @@ use App\Exception\ValidationException;
 use App\Model\Role;
 use App\Service\PhotoService;
 use Tests\Support\AppTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /** FR-46, NFR-19, AC-31: tür, boyut, sahte uzantı ve sahiplik denetimi. */
+#[Group('FR-46')]
+#[Group('NFR-19')]
+#[Group('AC-31')]
 final class PhotoServiceTest extends AppTestCase
 {
     private PhotoService $photos;
@@ -20,7 +24,7 @@ final class PhotoServiceTest extends AppTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->photos = new PhotoService($this->c->photos(), $this->c->properties(), $this->c->tx(), $this->dir . '/uploads', 2 * 1024 * 1024, false);
+        $this->photos = new PhotoService($this->c->photos(), $this->c->properties(), $this->c->units(), $this->c->tx(), $this->dir . '/uploads', 2 * 1024 * 1024, false);
         $this->ownerId = (int) $this->user(Role::IlanSahibi)->id;
         $this->propertyId = (int) $this->property($this->ownerId)->id;
     }
@@ -47,6 +51,18 @@ final class PhotoServiceTest extends AppTestCase
         self::assertSame('image/png', $photo->mimeType);
         self::assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/', $photo->fileName);
         self::assertFileExists($this->dir . '/uploads/' . $photo->fileName);
+        self::assertNull($photo->unitId, 'Oda seçilmezse ilanın genel fotoğrafıdır');
+    }
+
+    public function testPhotoCanBelongToAUnitOfTheSameProperty(): void
+    {
+        $unit = $this->unit($this->propertyId);
+        $photo = $this->photos->upload($this->ownerId, $this->propertyId, $this->file('oda.png', $this->png()), (int) $unit->id);
+        self::assertSame((int) $unit->id, $photo->unitId);
+
+        $otherProperty = (int) $this->property($this->ownerId)->id;
+        $this->expectException(ValidationException::class);
+        $this->photos->upload($this->ownerId, $otherProperty, $this->file('oda.png', $this->png()), (int) $unit->id);
     }
 
     public function testFakeExtensionIsRejected(): void

@@ -8,8 +8,11 @@ use App\Model\ReservationStatus as S;
 use App\Service\State\ReservationState;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /** T-02: SRS 4.3 durum makinesinin tüm geçerli ve geçersiz geçişleri. */
+#[Group('T-02')]
+#[Group('FR-15')]
 final class ReservationStateTest extends TestCase
 {
     private const ALLOWED = [
@@ -37,6 +40,7 @@ final class ReservationStateTest extends TestCase
         self::assertSame($allowed, ReservationState::of($from)->canTransitionTo($to));
     }
 
+    #[Group('BR-12')]
     public function testOnlyPendingAndConfirmedHoldNights(): void
     {
         foreach (S::cases() as $status) {

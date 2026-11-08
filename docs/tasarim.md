@@ -1,6 +1,6 @@
 # Tasarım Dokümanı: Otel / Kiralık Ev Rezervasyon Sistemi
 
-> Gereksinimler: [docs/srs.md](srs.md) (SRS v2.3). Bu belgedeki sınıf ve tablo adları, Aşama 2'de yazılan kodla (`src/`) ve SRS Bölüm 4.7 ile birebir aynıdır.
+> Gereksinimler: [docs/srs.md](srs.md) (SRS v2.3). Bu belgedeki sınıf ve tablo adları, Aşama 2'de yazılan kodla (`src/`) ve SRS Bölüm 4.7 ile birebir aynıdır. Gereksinim–test eşlemesi koddan üretilir: [docs/test-izlenebilirlik.md](test-izlenebilirlik.md).
 
 ## 1. Mimari
 
@@ -11,7 +11,7 @@ Her istek aynı yoldan geçer: `public/index.php` → Router → Controller → 
 | Router | Adrese göre hangi controller metodunun çalışacağını seçer, rotanın erişim kuralını taşır | İş kuralı içermez | `POST /rezervasyon` → `ReservationController::store` (`config/routes.php`) |
 | Controller | `$_POST/$_GET` verisini alır, servisi çağırır, görünümü seçer | SQL yazmaz, hesap yapmaz | `ReservationController` |
 | Service | İş kuralları ve çekirdek algoritma | `$_POST` okumaz, HTML üretmez | `BookingConflictService::assertAvailable` (çakışma), `PricingService::quote` (gecelik döküm), `RefundService::quoteCustomerCancellation` (iade) |
-| Repository | Veriyi okur ve yazar | İş kuralı içermez | `ReservationRepositoryInterface` → `JsonReservationRepository` (Aşama 2) |
+| Repository | Veriyi okur ve yazar | İş kuralı içermez | `ReservationRepositoryInterface` → `JsonReservationRepository` (Aşama 2) / `MySqlReservationRepository` (Aşama 3) |
 | Model | Veriyi taşıyan sade sınıf | Veritabanına erişmez | `Reservation`, `BookableUnit`, `Property` |
 | View | HTML gösterir, çıktıyı kaçışlar (`e()`) | Hesap yapmaz, veri çekmez | `views/reservation/preview.php` |
 
@@ -23,12 +23,13 @@ Her istek aynı yoldan geçer: `public/index.php` → Router → Controller → 
 ev-otel-rezervasyon/
 ├── public/              index.php (ön denetleyici), assets/app.css
 ├── config/              app.php (tüm sayısal ayarlar), routes.php (adres → controller + yetki)
-├── bin/                 seed.php (örnek veri), gorev.php (zamanlanmış görev)
+├── bin/                 seed.php (örnek veri), gorev.php (zamanlanmış görev + günlük yedek),
+│                        migrate.php (MySQL şeması), yedek.php (NFR-09), izlenebilirlik.php
 ├── src/
 │   ├── Router.php
 │   ├── Core/            Kernel, Container, Request, Response, Session, Csrf, Auth, View
 │   ├── Controller/      Home, Auth, Property, Reservation, Review, Profile,
-│   │                    Complaint, Host, Admin
+│   │                    Complaint, Host, Admin, Api (JSON uç noktası)
 │   ├── Service/         BookingConflict, Availability, Reservation, ReservationStateMachine,
 │   │   │                Pricing, PriceRule, Refund, Payment, Property, Auth, User,
 │   │   │                Favorite, Review, Notification, Complaint, Report, Photo,
@@ -41,8 +42,8 @@ ev-otel-rezervasyon/
 │   │   └── Mail/        MailerInterface, FileMailer (simüle e-posta)
 │   ├── Repository/
 │   │   ├── *RepositoryInterface.php, TransactionManagerInterface.php
-│   │   ├── Json/        (Aşama 2) JsonDatabase + 17 depo sınıfı
-│   │   └── MySql/       (Aşama 3) PDO ile aynı arayüzler
+│   │   ├── Json/        (Aşama 2) JsonDatabase + 17 depo sınıfı + JsonDataSnapshot
+│   │   └── MySql/       (Aşama 3) MySqlDatabase (PDO), Migrator, 17 depo sınıfı, MySqlDataSnapshot
 │   ├── Model/           User, Property, BookableUnit, Photo, Amenity, CalendarEntry,
 │   │                    Reservation, ReservationNight, ReservationCharge, PriceRule,
 │   │                    PricingRule, Payment, Review, Favorite, Notification,
@@ -51,13 +52,13 @@ ev-otel-rezervasyon/
 │   ├── Exception/
 │   └── Seed/            DemoSeeder
 ├── views/
-├── storage/             data/ (JSON tablolar), uploads/, logs/, mail/
-├── database/            (Aşama 3) şema ve örnek veri SQL dosyaları
+├── storage/             data/ (JSON tablolar), uploads/, logs/, mail/, backups/ (son 7 yedek)
+├── database/            migrations/ (001–004 .sql, 3NF şema), sorgular/ (JOIN'li rapor sorgusu)
 ├── tests/               Unit, Integration, Concurrency
 └── docs/
 ```
 
-**Kontrol sorusu:** Veritabanını değiştirirsek yalnızca `src/Repository/` altındaki sınıflar (ve `Core/Container.php` içindeki depo fabrikaları) değişir; servisler, controller'lar ve görünümler değişmez.
+**Kontrol sorusu:** Veritabanını değiştirirsek yalnızca `src/Repository/` altındaki sınıflar (ve `Core/Container.php` içindeki depo fabrikaları) değişir; servisler, controller'lar ve görünümler değişmez. Bu, Aşama 3'te gerçekten böyle oldu: MySQL için yalnızca `src/Repository/MySql/` eklendi ve `Container::repository()` depo seçimini yapıyor (bölüm 13). Katman kuralları `tests/Unit/ArchitectureTest.php` ile kodla denetlenir.
 
 ## 2. Sınıf Diyagramı
 
@@ -696,6 +697,8 @@ Renkler rolü gösterir: gri = herkes, yeşil = kayıtlı müşteri, turuncu = y
 
 Eşleme, SRS'teki FR kartlarının "Olay/Kullanım Senaryosu" ve "Destekleyici Materyal" alanlarından çıkarıldı (Ek B ile uyumlu). Kalın yazılan ÇEKİRDEK gereksinimdir.
 
+> **Gereksinim → otomatik test eşlemesi** (her FR/NFR/BR/AC/CS/T kodunu doğrulayan PHPUnit testleri, JSON ve MySQL sonuçları, NFR-16 kapsamı) koddan üretilen [test-izlenebilirlik.md](test-izlenebilirlik.md) dosyasındadır; aşağıdaki tablo tasarım bileşeni eşlemesidir. Her gereksinim GitHub'da bir issue'dur (aşamalar milestone).
+
 | UC | Senaryo | FR sayısı | Çekirdek FR | AC sayısı | Test sayısı |
 | --- | --- | --- | --- | --- | --- |
 | **UC-01** | Konaklama Arama | 5 | 3 | 4 | 3 |
@@ -882,7 +885,7 @@ quadrantChart
 | Dosya bozulması | Geçici dosyaya yaz + yeniden adlandır; yarıda kalırsa günlük (`.journal.json`) ile tamamlanır |
 | Koşullu güncelleme | `updateStatusIf(id, beklenen, yeni)` – `UPDATE ... WHERE id = ? AND status = ?` karşılığı; etkilenen satır 0 ise işlem reddedilir |
 
-Aşama 3'te aynı arayüzler PDO ile yazılır: `beginTransaction()`, `SELECT ... FOR UPDATE` ile birim kilidi ve tablo düzeyinde `UNIQUE` kısıtı.
+Aşama 3'te aynı arayüzler PDO ile yazıldı: `beginTransaction()`, `SELECT ... FOR UPDATE` ile birim kilidi ve tablo düzeyinde `UNIQUE` kısıtı (bölüm 13.2).
 
 ### 12.2 SRS'nin açık bıraktığı noktalarda verilen kararlar
 
@@ -921,3 +924,95 @@ Her parça yalnızca HTML parçası üretir, oturumu okuduktan hemen sonra `sess
 | T-14 | `tests/Unit/Service/RefundServiceTest.php` |
 | T-15 | `tests/Integration/ReportServiceTest.php` |
 | Güvenlik (CSRF, rol, XSS, oturum zaman aşımı) | `tests/Integration/WebTest.php`, `tests/Integration/AuthServiceTest.php`, `tests/Integration/PhotoServiceTest.php` |
+| JSON API, çıkış, form etiketleri (NFR-12) | `tests/Integration/WebTest.php` |
+| Hata dalları (NFR-16), sahte (stub) depo ile geçersiz geçiş | `tests/Integration/ReservationServiceRulesTest.php` |
+| İlan/oda yönetimi, filtre ve sıralama, favori, moderasyon, şikâyet, bildirim | `tests/Integration/ManagementFeaturesTest.php` |
+| Günlük ve denetim (NFR-10, NFR-17, NFR-18, T-11) | `tests/Integration/LoggingAndAuditTest.php` |
+| Yedekleme (NFR-09) | `tests/Integration/BackupServiceTest.php` |
+| MySQL kilit, kısıt ve migration (Aşama 3) | `tests/Integration/MySqlStorageTest.php` |
+| Mimari kurallar (katman atlama yok, framework yok) | `tests/Unit/ArchitectureTest.php` |
+| SRS sayısal kararları, saat dilimi | `tests/Unit/Support/SettingsTest.php` |
+
+Tüm eşleme: [test-izlenebilirlik.md](test-izlenebilirlik.md) (`composer izlenebilirlik` ile yeniden üretilir).
+### 12.5 JSON döndüren AJAX uç noktası (etkileşim standardı)
+
+`GET /api/musaitlik?birim=2&giris=2026-11-20&cikis=2026-11-23&kisi=2` → `ApiController::availability` → `ReservationService::preview` (kural `BookingConflictService`'ten, fiyat `PricingService`'ten; rezervasyonla aynı hesap). İlan sayfası "Müsaitlik ve fiyatı gör" düğmesinde bu ucu `fetch` ile çağırır; sonuç `textContent` ile yerleştirilir (XSS'e kapalı), sayfa yenilenmez.
+
+| Durum | Yanıt |
+| --- | --- |
+| Başarılı | `200 {"basarili":true,"musait":true,"gece":3,"geceler":[{"tarih","aciklama","tutar","metin"}],"konaklama_toplami","indirim","ek_kalemler","toplam","iptal_kosulu","alternatifler":[{"giris","cikis","metin"}]}` |
+| Doğrulama hatası | `422 {"basarili":false,"hatalar":{"cikis":"Çıkış tarihi giriş tarihinden sonra olmalıdır."}}` |
+| Bulunamadı / oturum / yoğunluk | `404` / `401` / `503 {"basarili":false,"hata":"..."}` (Kernel `/api/` altında hataları da JSON döndürür) |
+
+Para alanları `"1080.00"` biçiminde metin (DECIMAL) ve `"1.080,00 TL"` biçiminde gösterim metni olarak iki kez verilir; JSON'da kayan nokta kullanılmaz (BR-25).
+
+## 13. Aşama 3 Uygulaması (PDO + MySQL)
+
+Aşama 2'de veriler JSON dosyalarında kalır (varsayılan). Aynı Repository arayüzlerinin MySQL uygulaması yazılmıştır ve `EVOTEL_STORAGE=mysql` ile etkinleşir. Servis, controller ve görünümlerde hiçbir değişiklik yoktur; seçim tek yerde yapılır:
+
+```php
+// src/Core/Container.php
+return $this->repository(ReservationRepositoryInterface::class, JsonReservationRepository::class, MySqlReservationRepository::class);
+```
+
+### 13.1 Bileşenler
+
+| Bileşen | Görevi |
+| --- | --- |
+| `MySqlDatabase` | PDO bağlantısı (`ATTR_EMULATE_PREPARES=false`: gerçek hazırlıklı ifadeler), `transaction()`, `select/one/execute/insert`, MySQL 1062 → `UniqueConstraintException`, 1205/1213 → en çok 2 yeniden deneme → `BusyException` |
+| `MySqlTransactionManager` | `TransactionManagerInterface` (BEGIN / COMMIT / ROLLBACK) |
+| `MySql*Repository` (17 sınıf) | Aynı arayüzler; satır ⇄ model dönüşümü modellerin `fromArray/toArray` metotlarıyla (sütun adları JSON ile aynı) |
+| `Migrator` + `bin/migrate.php` | `database/migrations/*.sql` dosyalarını sırayla bir kez uygular (`schema_migrations`), `--fresh`, `--seed` |
+| `MySqlDataSnapshot` | Yedek ve geri yükleme (NFR-09); JSON ile aynı biçim, depolar arası taşınabilir |
+
+### 13.2 Çift rezervasyon güvencesi (SRS 4.5) MySQL'de
+
+| Güvence katmanı | MySQL karşılığı |
+| --- | --- |
+| 1. Uygulama kuralı | Değişmedi: `BookingConflictService::assertAvailable` |
+| 2. İşlem + birim kilidi | `ReservationService::create` işlemin ilk adımında `lockUnit()` çağırır → `SELECT id FROM bookable_units WHERE id = ? FOR UPDATE`. Aynı birime gelen istekler (aynı formun çift gönderimi dahil) sırayla ilerler; farklı birimler birbirini beklemez. Yalıtım düzeyi READ COMMITTED: kilidi alan işlem, kilidi bırakan işlemin yazdıklarını görür. |
+| 3. Veri kısıtı | `UNIQUE (unit_id, night_date)` (`003_rezervasyonlar.sql`); bileşik FK `(reservation_id, unit_id)` gece–rezervasyon tutarlılığını korur |
+| Kilit zaman aşımı | `innodb_lock_wait_timeout = 5` (NFR-13); 1205 / 1213 hatasında işlem geri alınır, en çok 2 kez yeniden denenir, sonra "yoğunluk" mesajı |
+| Koşullu güncelleme | `UPDATE reservations SET status = ? ... WHERE id = ? AND status = ?`; `rowCount() === 1` değilse çakışma |
+
+Doğrulama: `tests/Integration/MySqlStorageTest.php` (satır kilidinin ikinci bağlantıyı `NOWAIT` ile durdurması, kilit zaman aşımında 3 deneme, UNIQUE ve CHECK kısıtları, iki bağlantıda koşullu güncelleme) ve aynı 50 süreçli eşzamanlılık testlerinin MySQL'de koşması; SRS 4.8 gereği bir test uygulama kontrolü kapalıyken de koşar (`testT05bWithAppChecksDisabled...`: yalnızca UNIQUE kısıtıyla 50 istekten 1'i başarılı).
+
+### 13.3 Şema (3NF) ve migration dosyaları
+
+| Dosya | Tablolar |
+| --- | --- |
+| `001_kullanicilar.sql` | users, login_attempts, password_reset_tokens |
+| `002_ilanlar.sql` | properties, bookable_units, amenities, property_amenities, photos, calendar_entries, price_rules, pricing_rules |
+| `003_rezervasyonlar.sql` | reservations, reservation_nights, reservation_charges, payments |
+| `004_etkilesim.sql` | reviews, favorites, notifications, complaints, audit_logs |
+
+InnoDB ve utf8mb4; para alanları `DECIMAL(10,2)`; enum alanları `ENUM`; kısıtlar: `CHECK (check_out > check_in)`, `CHECK (rating BETWEEN 1 AND 5)`, `CHECK (refund_amount <= amount)`. Rastgele/teknik anahtarlar (`reservation_no`, `idempotency_key`, `token_hash`, `file_name`) `ascii_bin` ile büyük-küçük harf duyarlıdır. Sütun boyutları servis doğrulamalarıyla eşittir (ör. ad 50, ilan adı 120, adres 255, neden metinleri 500); böylece MySQL'de "Data too long" hatası yerine anlaşılır doğrulama mesajı gösterilir.
+
+### 13.4 JOIN'li rapor sorgusu
+
+`ReservationRepositoryInterface::reportRows()` doluluk ve gelir raporunun veri kaynağıdır (FR-30, BR-30):
+
+```sql
+SELECT r.id, r.unit_id, r.status, r.check_in, r.check_out,
+       COALESCE(SUM(CASE WHEN p.status IN (?, ?, ?) THEN p.amount ELSE 0 END), 0) AS paid,
+       COALESCE(SUM(CASE WHEN p.status IN (?, ?, ?) THEN p.refund_amount ELSE 0 END), 0) AS refunded
+FROM reservations r
+JOIN bookable_units u ON u.id = r.unit_id
+JOIN properties pr ON pr.id = u.property_id
+LEFT JOIN payments p ON p.reservation_id = r.id
+WHERE r.check_in < ? AND r.check_out > ? [AND pr.owner_id = ?]
+GROUP BY r.id, r.unit_id, r.status, r.check_in, r.check_out
+```
+
+`ReportService` ilan, birim, oda tipi ve ay kırılımlarını bu satırlardan hesaplar. JSON deposu aynı birleştirmeyi bellekte yapar; iki uygulama aynı testle doğrulanır (`ReportServiceTest`). İstemcide denemek için ilan bazında özetle birlikte bağımsız hali: `database/sorgular/doluluk-gelir-raporu.sql`.
+
+### 13.5 Verilen kararlar
+
+| Konu | Karar | Gerekçe |
+| --- | --- | --- |
+| Varsayılan depo | JSON (`EVOTEL_STORAGE` verilmezse) | Aşama 2 kuralı: veriler JSON dosyalarında tutulur. Final teslimde varsayılan MySQL yapılacak (GitHub #77). |
+| Kilidin yeri | Birim kilidi `create()` işleminin ilk adımı, idempotency kontrolünden önce | Aynı formun iki gönderimi MySQL'de de sırayla ilerler; ikincisi ilk kaydı bulur ve "zaten oluşturuldu" der (A4). |
+| Yalıtım düzeyi | READ COMMITTED | REPEATABLE READ'de işlem kilitten önce düz bir okuma yaptıysa sonraki okumalar o eski görüntüyü görür ve kilidi bırakan işlemin yazdığı rezervasyonu kaçırabilir. READ COMMITTED'da her okuma son işlenmiş veriyi görür; kilit + taze okuma kuralın doğru çalışmasının şartıdır. Yedek alma ise tek seferlik REPEATABLE READ işlemle tutarlı görüntü alır. |
+| Ekle-veya-güncelle | `INSERT ... ON DUPLICATE KEY UPDATE col = ?` (değer yeniden bağlanır) | MySQL 8'de kullanımdan kalkan `VALUES()` işlevine ve MariaDB'de olmayan satır takma adına gerek kalmaz. |
+| Test veritabanı | Ayrı `evotel_test`; adı `_test` ile bitmeyen veritabanında testler çalışmaz | Testler her seferinde tabloları boşaltır; gerçek veri korunur. |
+| Testlerde boşaltma | Yalnızca dolu tablolar `DELETE` + `AUTO_INCREMENT = 1` | `TRUNCATE` her tabloyu yeniden oluşturduğu için 135 testte 84 sn → 19 sn. |

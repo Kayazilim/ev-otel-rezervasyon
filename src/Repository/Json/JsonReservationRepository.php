@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Repository\Json;
 
 use App\Exception\PersistenceException;
+use App\Model\PaymentStatus;
 use App\Model\Reservation;
 use App\Model\ReservationCharge;
 use App\Model\ReservationNight;
+use App\Model\ReservationRevenue;
 use App\Model\ReservationStatus;
 use App\Repository\ReservationRepositoryInterface;
 use App\Support\DateRange;
@@ -183,6 +185,50 @@ final class JsonReservationRepository implements ReservationRepositoryInterface
             throw new PersistenceException('Birim kilidi yalnızca işlem içinde alınabilir.');
         }
         // JSON depoda işlem zaten dışlayıcı dosya kilidi altında; ayrıca bir şey gerekmez.
+    }
+
+    public function reportRows(?int $ownerId, DateRange $period): array
+    {
+        // reservations ⋈ bookable_units ⋈ properties ⟕ payments (SQL'i: MySqlReservationRepository::reportRows)
+        $ownerOfProperty = [];
+        foreach ($this->db->select('properties') as $property) {
+            $ownerOfProperty[(int) $property['id']] = (int) $property['owner_id'];
+        }
+        $ownerOfUnit = [];
+        foreach ($this->db->select('bookable_units') as $unit) {
+            $ownerOfUnit[(int) $unit['id']] = $ownerOfProperty[(int) $unit['property_id']] ?? null;
+        }
+        $captured = array_map(fn (PaymentStatus $s): string => $s->value, PaymentStatus::captured());
+        $paid = [];
+        $refunded = [];
+        foreach ($this->db->select('payments', fn (array $r): bool => in_array($r['status'], $captured, true)) as $payment) {
+            $reservationId = (int) $payment['reservation_id'];
+            $paid[$reservationId] = ($paid[$reservationId] ?? 0) + Row::decimal($payment, 'amount');
+            $refunded[$reservationId] = ($refunded[$reservationId] ?? 0) + Row::decimal($payment, 'refund_amount');
+        }
+
+        $from = $period->checkIn->format('Y-m-d');
+        $to = $period->checkOut->format('Y-m-d');
+        $rows = [];
+        foreach ($this->db->select(self::TABLE, fn (array $r): bool => $r['check_in'] < $to && $r['check_out'] > $from) as $r) {
+            $unitId = (int) $r['unit_id'];
+            $owner = $ownerOfUnit[$unitId] ?? null;
+            if ($owner === null || ($ownerId !== null && $owner !== $ownerId)) {
+                continue;
+            }
+            $id = (int) $r['id'];
+            $rows[] = new ReservationRevenue(
+                $id,
+                $unitId,
+                ReservationStatus::from((string) $r['status']),
+                Row::date($r, 'check_in'),
+                Row::date($r, 'check_out'),
+                $paid[$id] ?? 0,
+                $refunded[$id] ?? 0,
+            );
+        }
+
+        return $rows;
     }
 
     /**

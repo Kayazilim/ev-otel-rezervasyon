@@ -9,21 +9,16 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Core\View;
-use App\Exception\NotFoundException;
-use App\Exception\ValidationException;
 use App\Model\PropertyType;
 use App\Model\RoomType;
 use App\Service\AvailabilityService;
 use App\Service\Dto\SearchCriteria;
 use App\Service\PhotoService;
 use App\Service\PropertyService;
-use App\Service\ReservationService;
 use App\Support\ClockInterface;
-use App\Support\DateRange;
 use App\Support\Decimal;
-use InvalidArgumentException;
 
-/** Arama, ilan detayı, aylık takvim ve fiyat önizlemesi (UC-01; taslak 02 ve 03). */
+/** Arama, ilan detayı ve aylık takvim (UC-01; taslak 02 ve 03). Fiyat önizlemesi: ApiController (/api/musaitlik). */
 final class PropertyController extends Controller
 {
     public function __construct(
@@ -32,7 +27,6 @@ final class PropertyController extends Controller
         Auth $auth,
         private readonly PropertyService $properties,
         private readonly AvailabilityService $availability,
-        private readonly ReservationService $reservations,
         private readonly PhotoService $photos,
         private readonly ClockInterface $clock,
     ) {
@@ -97,25 +91,6 @@ final class PropertyController extends Controller
             'calendar' => $this->availability->monthCalendar((int) $unit->id, $year, $month),
             'showPrices' => $request->query('fiyat') === '1',
         ]);
-    }
-
-    /** Bonus: formu sayfa yenilemeden göndermek. Fiyat dökümü PHP'de üretilir, JS yalnızca yerine koyar. */
-    public function priceFragment(Request $request): Response
-    {
-        $viewer = $this->auth->user();
-        $this->session->close();
-        try {
-            $range = DateRange::fromStrings($request->query('giris'), $request->query('cikis'), $this->clock->today()->getTimezone());
-            $preview = $this->reservations->preview($viewer?->id, $request->int('birim'), $range, $request->int('kisi', 1));
-
-            return $this->fragment('property/_price', ['preview' => $preview, 'errors' => [], 'viewer' => $viewer]);
-        } catch (InvalidArgumentException) {
-            return $this->fragment('property/_price', ['preview' => null, 'errors' => ['giris' => 'Giriş ve çıkış tarihlerini seçin.'], 'viewer' => $viewer]);
-        } catch (ValidationException $e) {
-            return $this->fragment('property/_price', ['preview' => null, 'errors' => $e->errors(), 'viewer' => $viewer]);
-        } catch (NotFoundException $e) {
-            return $this->fragment('property/_price', ['preview' => null, 'errors' => ['birim' => $e->getMessage()], 'viewer' => $viewer]);
-        }
     }
 
     /** Yüklenen resimler web kökünün dışından bu adresle sunulur (NFR-19). */

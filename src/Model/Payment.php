@@ -25,7 +25,7 @@ final class Payment
     /** Tahsil edilmiş (iade sonrası değişmeyen) tutar sayılır mı? */
     public function isCaptured(): bool
     {
-        return in_array($this->status, [PaymentStatus::Basarili, PaymentStatus::KismenIade, PaymentStatus::IadeEdildi], true);
+        return $this->status->isCaptured();
     }
 
     /** @param array<string, mixed> $r */

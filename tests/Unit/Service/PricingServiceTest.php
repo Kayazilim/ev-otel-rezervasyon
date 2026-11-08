@@ -9,11 +9,14 @@ use App\Model\CalendarStatus;
 use App\Model\ChargeType;
 use App\Model\Role;
 use Tests\Support\AppTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * T-12 / T-13 (SRS 4.10): gece bazlı fiyat matrisi, öncelik, sınır geceleri, uzun konaklama
  * eşikleri, takvim istisnası, yuvarlama ve döküm tutarlılığı. 9 Temmuz 2027 Cuma günüdür.
  */
+#[Group('FR-14')]
+#[Group('FR-44')]
 final class PricingServiceTest extends AppTestCase
 {
     private int $propertyId;
@@ -35,6 +38,9 @@ final class PricingServiceTest extends AppTestCase
         $this->taxRule($this->propertyId, 10);
     }
 
+    #[Group('AC-23')]
+    #[Group('T-12')]
+    #[Group('BR-23')]
     public function testAc23SeasonAndWeekendNightlyBreakdown(): void
     {
         $this->fullRules();
@@ -47,6 +53,9 @@ final class PricingServiceTest extends AppTestCase
         self::assertSame(486200, $quote->total);
     }
 
+    #[Group('AC-24')]
+    #[Group('T-12')]
+    #[Group('BR-24')]
     public function testAc24LongStayDiscountAndTax(): void
     {
         $this->fullRules();
@@ -58,6 +67,9 @@ final class PricingServiceTest extends AppTestCase
         self::assertSame(952380, $quote->total);                // 9.523,80 TL
     }
 
+    #[Group('T-12')]
+    #[Group('BR-23')]
+    #[Group('FR-43')]
     public function testBaseOnlyWeekendOnlyAndSeasonOnly(): void
     {
         $pricing = $this->c->pricingService();
@@ -73,6 +85,8 @@ final class PricingServiceTest extends AppTestCase
         self::assertSame(130000, $pricing->quote($this->unit, $this->range('2026-12-01', '2026-12-02'))->total, 'yalnızca sezon');
     }
 
+    #[Group('T-12')]
+    #[Group('BR-23')]
     public function testSeasonBoundaryNightsAreInclusive(): void
     {
         $this->seasonRule($this->propertyId, '2027-07-01', '2027-07-31', 30);
@@ -85,6 +99,9 @@ final class PricingServiceTest extends AppTestCase
         self::assertSame(100000, $this->c->pricingService()->quote($this->unit, $this->range('2027-06-30', '2027-07-01'))->total);
     }
 
+    #[Group('T-12')]
+    #[Group('AC-25')]
+    #[Group('BR-23')]
     public function testCalendarExceptionOverridesSeasonAndWeekend(): void
     {
         $this->seasonRule($this->propertyId, '2027-07-01', '2027-07-31', 30);
@@ -97,6 +114,9 @@ final class PricingServiceTest extends AppTestCase
         self::assertTrue($quote->nights[1]->isException);
     }
 
+    #[Group('T-12')]
+    #[Group('AC-25')]
+    #[Group('BR-26')]
     public function testHigherPrioritySeasonWins(): void
     {
         $this->seasonRule($this->propertyId, '2027-07-01', '2027-07-31', 30, 1, 'Yaz');
@@ -107,6 +127,8 @@ final class PricingServiceTest extends AppTestCase
         self::assertSame(130000, $this->c->pricingService()->quote($this->unit, $this->range('2027-07-13', '2027-07-14'))->total);
     }
 
+    #[Group('T-12')]
+    #[Group('BR-24')]
     public function testLongStayThresholds(): void
     {
         $this->longStayRule($this->propertyId, 7, 10);
@@ -118,6 +140,9 @@ final class PricingServiceTest extends AppTestCase
         self::assertSame(-560000, $pricing->quote($this->unit, $this->range('2026-12-01', '2026-12-29'))->discount?->amount, '28 gece: en yüksek eşik %20');
     }
 
+    #[Group('T-13')]
+    #[Group('BR-25')]
+    #[Group('AC-21')]
     public function testRoundingIsPerNightAndLinesSumToTotal(): void
     {
         $unit = $this->unit($this->propertyId, 1, 2, '333');

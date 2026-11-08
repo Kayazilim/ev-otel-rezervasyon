@@ -14,6 +14,7 @@ use App\Model\ReservationStatus;
 use App\Model\Role;
 use App\Model\User;
 use Tests\Support\AppTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /** Çekirdek kural (SRS 4.4): doğrulama, engelleyen durumlar, kapalı geceler, alternatifler, takvim. */
 final class BookingConflictServiceTest extends AppTestCase
@@ -32,6 +33,11 @@ final class BookingConflictServiceTest extends AppTestCase
         $this->unit = $this->unit((int) $this->property->id, 1000, 2);
     }
 
+    #[Group('BR-01')]
+    #[Group('BR-02')]
+    #[Group('BR-14')]
+    #[Group('AC-03')]
+    #[Group('FR-11')]
     public function testDateRulesBr01Br02Br14(): void
     {
         $conflicts = $this->c->bookingConflictService();
@@ -44,6 +50,10 @@ final class BookingConflictServiceTest extends AppTestCase
         self::assertArrayHasKey('giris', $conflicts->dateErrors($this->range('2027-11-02', '2027-11-03')), 'en çok 365 gün ileri');
     }
 
+    #[Group('BR-03')]
+    #[Group('BR-19')]
+    #[Group('AC-03')]
+    #[Group('FR-11')]
     public function testCapacityInactivePropertyAndOwnListing(): void
     {
         $conflicts = $this->c->bookingConflictService();
@@ -66,6 +76,9 @@ final class BookingConflictServiceTest extends AppTestCase
         $conflicts->validate($this->property, $this->unit, $this->range('2026-11-10', '2026-11-12'), 1, (int) $this->guest->id);
     }
 
+    #[Group('BR-12')]
+    #[Group('AC-15')]
+    #[Group('CS-05')]
     public function testExpiredHoldDoesNotBlockEvenBeforeCleanup(): void
     {
         $hold = $this->book((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
@@ -82,6 +95,9 @@ final class BookingConflictServiceTest extends AppTestCase
         self::assertTrue($conflicts->isAvailable((int) $this->unit->id, $range), 'Zamanlanmış görev çalışmasa da engellemez (FR-34)');
     }
 
+    #[Group('BR-04')]
+    #[Group('BR-22')]
+    #[Group('FR-22')]
     public function testClosedNightsBlockBookingButNotOtherUnits(): void
     {
         $this->c->calendar()->upsert(new CalendarEntry(null, (int) $this->unit->id, $this->d('2026-11-11'), CalendarStatus::Kapali, null));
@@ -93,6 +109,8 @@ final class BookingConflictServiceTest extends AppTestCase
         self::assertTrue($conflicts->isAvailable((int) $this->unit->id, $this->range('2026-11-12', '2026-11-14')));
     }
 
+    #[Group('FR-36')]
+    #[Group('AC-12')]
     public function testAlternativesHaveSameLengthAndAreFree(): void
     {
         $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
@@ -106,6 +124,8 @@ final class BookingConflictServiceTest extends AppTestCase
         }
     }
 
+    #[Group('FR-10')]
+    #[Group('AC-32')]
     public function testNightStatusesForCalendar(): void
     {
         $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-10', '2026-11-12');
@@ -120,6 +140,8 @@ final class BookingConflictServiceTest extends AppTestCase
         self::assertCount(30, $statuses);
     }
 
+    #[Group('BR-12')]
+    #[Group('AC-16')]
     public function testCancelledReservationDoesNotBlock(): void
     {
         $reservation = $this->bookAndPay((int) $this->guest->id, $this->unit, '2026-11-20', '2026-11-22');
