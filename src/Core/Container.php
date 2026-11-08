@@ -11,6 +11,7 @@ use App\Controller\ComplaintController;
 use App\Controller\Controller;
 use App\Controller\HomeController;
 use App\Controller\HostController;
+use App\Controller\MailboxController;
 use App\Controller\ProfileController;
 use App\Controller\PropertyController;
 use App\Controller\ReservationController;
@@ -85,7 +86,10 @@ use App\Service\BookingConflictService;
 use App\Service\ComplaintService;
 use App\Service\ConsistencyAuditService;
 use App\Service\FavoriteService;
+use App\Service\Mail\FileMailbox;
 use App\Service\Mail\FileMailer;
+use App\Service\Mail\MailerInterface;
+use App\Service\Mail\SmtpMailer;
 use App\Service\NotificationService;
 use App\Service\PaymentService;
 use App\Service\PhotoService;
@@ -439,13 +443,46 @@ final class Container
         ));
     }
 
+    /** FR-04 e-postası: varsayılan simüle posta kutusu (storage/mail); 'smtp' seçilirse gerçek gönderim. */
+    public function mailer(): MailerInterface
+    {
+        return $this->once('mailer', fn (): MailerInterface => $this->settings->usesSmtp()
+            ? $this->smtpMailer()
+            : new FileMailer($this->settings->mailDir, $this->clock));
+    }
+
+    public function smtpMailer(): SmtpMailer
+    {
+        $s = $this->settings;
+
+        return $this->once('smtpMailer', fn (): SmtpMailer => new SmtpMailer(
+            $s->smtpHost,
+            $s->smtpPort,
+            $s->smtpSecure,
+            $s->smtpUser,
+            $s->smtpPassword,
+            $s->mailFrom !== '' ? $s->mailFrom : $s->smtpUser,
+            $s->mailFromName,
+            $this->clock,
+        ));
+    }
+
+    /** Geliştirme: simüle iletileri okur (/posta-kutusu). SMTP seçiliyse iletiler gerçek kutuya gittiği için kapalıdır. */
+    public function mailbox(): FileMailbox
+    {
+        return $this->once('mailbox', fn (): FileMailbox => new FileMailbox(
+            $this->settings->mailDir,
+            $this->settings->mailInbox && !$this->settings->usesSmtp(),
+        ));
+    }
+
     public function authService(): AuthService
     {
         return $this->once('authService', fn (): AuthService => new AuthService(
             $this->users(),
             $this->loginAttempts(),
             $this->resetTokens(),
-            new FileMailer($this->settings->mailDir, $this->clock),
+            $this->mailer(),
             $this->tx(),
             $this->clock,
             $this->settings,
@@ -582,6 +619,7 @@ final class Container
             ApiController::class => new ApiController($v, $s, $a, $this->reservationService(), $this->clock),
             HomeController::class => new HomeController($v, $s, $a, $this->propertyService()),
             AuthController::class => new AuthController($v, $s, $a, $this->authService()),
+            MailboxController::class => new MailboxController($v, $s, $a, $this->mailbox()),
             PropertyController::class => new PropertyController(
                 $v,
                 $s,

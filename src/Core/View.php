@@ -103,6 +103,12 @@ final class View
         return isset($errors[$field]) ? '<div class="invalid-feedback d-block">' . e($errors[$field]) . '</div>' : '';
     }
 
+    /** Düz metni kaçışlar ve içindeki http(s) adreslerini tıklanabilir bağlantıya çevirir (posta kutusu). */
+    public function linkify(string $text): string
+    {
+        return (string) preg_replace('~https?://[^\s<>"\']+~', '<a href="$0" rel="noopener noreferrer">$0</a>', e($text));
+    }
+
     public function statusBadge(ReservationStatus $status): string
     {
         return '<span class="badge text-bg-' . e($status->badge()) . '">' . e($status->label()) . '</span>';

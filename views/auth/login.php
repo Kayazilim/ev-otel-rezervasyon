@@ -30,6 +30,9 @@ $role = $old['rol'] ?? 'musteri';
                     <button type="submit" class="btn btn-success w-100 fw-semibold">GİRİŞ YAP</button>
                 </form>
                 <p class="small mt-3 mb-1"><a href="<?= e($view->url('/parola-sifirla')) ?>">Parolamı unuttum</a> → sıfırlama bağlantısı</p>
+                <?php if ($mailInbox ?? false): ?>
+                    <p class="small mb-1 text-body-secondary">📬 Prototip: gönderilen e-postalar <a href="<?= e($view->url('/posta-kutusu')) ?>">Posta kutusu</a> sayfasında görünür.</p>
+                <?php endif; ?>
                 <p class="small mb-0">Hesabın yok mu? <a href="#kayit">Kayıt ol →</a></p>
             </div>
         </div>

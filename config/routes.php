@@ -8,6 +8,7 @@ use App\Controller\AuthController;
 use App\Controller\ComplaintController;
 use App\Controller\HomeController;
 use App\Controller\HostController;
+use App\Controller\MailboxController;
 use App\Controller\ProfileController;
 use App\Controller\PropertyController;
 use App\Controller\ReservationController;
@@ -40,6 +41,8 @@ return static function (Router $r): void {
     $r->post('/parola-sifirla', [AuthController::class, 'forgot']);
     $r->get('/parola-sifirla/{token}', [AuthController::class, 'showReset']);
     $r->post('/parola-sifirla/{token}', [AuthController::class, 'reset']);
+    $r->get('/posta-kutusu', [MailboxController::class, 'index']);                   // geliştirme: simüle e-postalar (yalnızca yerelden)
+    $r->get('/posta-kutusu/{ileti}', [MailboxController::class, 'show']);
     $r->post('/cikis', [AuthController::class, 'logout'], 'auth');
 
     // Kayıtlı müşteri

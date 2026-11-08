@@ -104,7 +104,8 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
 <footer class="border-top bg-white py-3 mt-4">
     <div class="container small text-body-secondary d-flex flex-wrap justify-content-between gap-2">
         <span>EvOtel · Otel / Kiralık Ev Rezervasyon Sistemi</span>
-        <span>Aşama 2 prototip: veriler JSON dosyalarında · Ödemeler simüledir, kart bilgisi alınmaz.</span>
+        <span>Aşama 2 prototip: veriler JSON dosyalarında · Ödemeler simüledir, kart bilgisi alınmaz.<?php if ($mailInbox ?? false): ?>
+            · <a href="<?= e($view->url('/posta-kutusu')) ?>">📬 Posta kutusu</a><?php endif; ?></span>
     </div>
 </footer>
 
