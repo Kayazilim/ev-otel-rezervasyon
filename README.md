@@ -63,8 +63,19 @@ Tüm demo hesaplarının parolası: `Demo1234!` (yalnızca yerel demo verisi, `s
 | İlan sahibi | `ayse@evotel.test` | Karadeniz Otel, Uzungöl Dağ Evi (onaylı mod, bekleyen talep var), Gümüşhane Şehir Oteli |
 | İlan sahibi | `mehmet@evotel.test`, `zeynep@evotel.test` | Diğer ilanlar |
 | Müşteri | `ali@evotel.test`, `can@evotel.test`, `deniz@evotel.test`, `burak@evotel.test`, `selin@evotel.test` | Arama, rezervasyon, simüle ödeme, iptal ve iade, yorum, favori, şikâyet |
+| Müşteri (yorumcular) | `elif@`, `emre@`, `merve@`, `okan@`, `gizem@`, `kerem@evotel.test` | Geçmiş konaklamaları ve yorumları olan hesaplar |
 
-Örnek veri: 9 kullanıcı, 8 ilan, 16 oda/birim, 6 oda tipi, 18 rezervasyon (tamamlanan, devam eden, bekleyen, iptal, ret, süresi dolan). Ayrıca yorumlar, takvim istisnaları, sezon/hafta sonu/uzun konaklama kuralları, KDV ve temizlik ücreti var.
+Örnek veri: 15 kullanıcı, 8 ilan, 16 oda/birim, 6 oda tipi, 54 rezervasyon (tamamlanan, devam eden, bekleyen, iptal, ret, süresi dolan), 43 yorum (her ilanda 4–7, yalnızca tamamlanmış konaklamalardan) ve 36 fotoğraf. Ayrıca takvim istisnaları, sezon/hafta sonu/uzun konaklama kuralları, KDV ve temizlik ücreti var.
+
+**Fotoğraflar:** depoda resim dosyası yoktur (ders kuralı). Her ilanın gündüz, akşam ve iç mekân fotoğrafı ile otel odalarının fotoğrafları örnek veri yüklenirken PHP GD ile sade çizimler olarak üretilir ve `storage/uploads/` klasörüne yazılır; yani ilan sahibinin yüklediği fotoğraflar gibi veridir (FR-46). `config/app.php` içindeki `demo_photos` ayarıyla kapatılabilir; GD yoksa emoji yer tutucu gösterilir.
+
+### Şikâyet akışı
+
+Kullanıcı bir ilan veya rezervasyon için şikâyet gönderince (FR-27):
+
+1. Şikâyet **Yeni** durumuyla yönetim ekibinin **Yönetim → Şikâyetler** kutusuna düşer ve her aktif yöneticiye bildirim gider.
+2. Kullanıcı **Şikâyetlerim** (`/sikayetlerim`) sayfasına yönlendirilir; şikâyet numarasını ve durumunu orada izler.
+3. Yönetici durumu (İnceleniyor, Çözüldü, Reddedildi) veya notu güncelleyince şikâyet sahibine bildirim gider.
 
 ### Parola sıfırlama ve e-posta
 
@@ -115,7 +126,7 @@ composer test
 
 | Komut | Ne yapar |
 | --- | --- |
-| `composer test` | Tüm PHPUnit testleri, JSON deposunda (209 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
+| `composer test` | Tüm PHPUnit testleri, JSON deposunda (218 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
 | `composer test:mysql` | Aynı testler MySQL'de (`evotel_test` veritabanı; `EVOTEL_TEST_DB_HOST/PORT/USER/PASSWORD`). Testler her seferinde tabloları boşalttığı için adı `_test` ile bitmeyen veritabanında çalışmaz. |
 | `composer test:hizli` | Eşzamanlılık testleri hariç |
 | `composer kapsam` | Satır kapsamı (Xdebug gerekir; HTML rapor `coverage/`) |
@@ -123,7 +134,7 @@ composer test
 | `composer analiz` | PHPStan statik analiz (seviye 6; `src`, `bin`, `config`, `tests`) |
 | `composer stil` / `composer stil:duzelt` | PSR-12 kod stili denetimi / otomatik düzeltme |
 
-Son çalıştırma (08.11.2026): JSON deposunda 209 test / 1378 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 209 test / 1432 doğrulama, hepsi geçti. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,1 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
+Son çalıştırma (08.11.2026): JSON deposunda 218 test / 1745 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 218 test / 1799 doğrulama, hepsi geçti. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,1 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
 
 Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group FR-18` (her test doğruladığı gereksinim kodunu `#[Group]` olarak taşır).
 
@@ -140,7 +151,7 @@ Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group F
 | **Eşzamanlılık:** transaction ve satır kilidi | MySQL: `BEGIN … SELECT … FOR UPDATE … COMMIT`, kilit bekleme 5 sn, 2 yeniden deneme; JSON: dosya kilidi; koşullu güncelleme + `UNIQUE(birim, gece)`; 50 süreçli testler |
 | **Güvenlik:** hazırlıklı ifadeler, `password_hash`, XSS kaçışı, CSRF, `session_regenerate_id`, her işlemde yetki | `MySqlDatabase` (`ATTR_EMULATE_PREPARES=false`), `AuthService`, `e()`, `Kernel` (CSRF), `Auth::login` ve parola değişiminde oturum kimliği yenileme, rota yetkisi + servislerde sahiplik denetimi |
 | **Etkileşim:** JSON döndüren AJAX ucu | `GET /api/musaitlik` (`ApiController`) + 4 kendiliğinden yenilenen bölüm (`/parca/...`) |
-| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (209 test), [docs/test-izlenebilirlik.md](docs/test-izlenebilirlik.md) |
+| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (218 test), [docs/test-izlenebilirlik.md](docs/test-izlenebilirlik.md) |
 | **Kod kalitesi:** PHPStan, hatasız çalışma, anlaşılır hata mesajları | `composer analiz` (seviye 6, testler dahil), alan bazlı doğrulama mesajları, JSON uçta JSON hata, depo erişilemezse 503 ve açıklama |
 | **Süreç:** GitHub deposu, anlamlı commit geçmişi, Projects backlog, README | Bu depo; her SRS gereksinimi bir issue, 3 aşama milestone'u, [GitHub Projects panosu](https://github.com/users/Kayazilim/projects/1) (Yapılacak / Yapılıyor / Bitti, SRS önceliği, aşama görünümleri; issue kapanınca veya PR birleşince kart kendiliğinden Bitti'ye geçer), PR ile birleştirme |
 
@@ -151,7 +162,7 @@ Proje kartı ve ortak şartlar:
 | Kayıt, giriş, çıkış, en az 2 rol, her sayfada yetki | 3 rol; erişim kuralı her rotada (`config/routes.php`), sahiplik serviste |
 | Kritik işlemler POST + CSRF, dosya yükleme kontrolü | `Kernel` (CSRF), `PhotoService` (gerçek MIME, 2 MB, sahte uzantı, sahiplik; oda bazında fotoğraf) |
 | Arama/filtre ve rapor ekranı | `/ara` (konum, tarih, kişi, tür, fiyat, puan, oda tipi, olanak, sıralama), `/panel/rapor`, `/yonetim/rapor` |
-| HTML, CSS, Bootstrap, resim/ikon dosyası yok, telefonda kullanılabilir | Bootstrap 5; görseller emoji ve CSS grid (takvim) |
+| HTML, CSS, Bootstrap, resim/ikon dosyası yok, telefonda kullanılabilir | Bootstrap 5 ve resmi minimalist tema (`public/assets/app.css`; renk, yazı ve boşluk değerleri Lovable'da hazırlanan tasarım prototipinden alındı, prototip kodu kullanılmadı). Depoda resim/ikon dosyası yok: simgeler Unicode, takvim CSS grid, ilan fotoğrafları örnek veri yüklenirken GD ile çizilir. 375 px genişlikte yatay taşma yok. |
 | Sayfanın bir bölümünü kendiliğinden yenileme | Müsaitlik takvimi, gelen rezervasyonlar, rezervasyon durumu, bildirim sayısı ([tasarim.md 12.3](docs/tasarim.md)) |
 | Koşullu güncelleme ve etkilenen satır kontrolü | `updateStatusIf` (`UPDATE … WHERE id = ? AND status = ?`, `rowCount() === 1`) |
 | Örnek veri (en az 10 oda/ev, 3 oda tipi) | 16 birim, 6 oda tipi |
