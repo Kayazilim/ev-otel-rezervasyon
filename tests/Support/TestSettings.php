@@ -15,7 +15,7 @@ use RuntimeException;
  */
 final class TestSettings
 {
-    public static function create(string $dir, string $logFile = '', bool $mailInbox = false): Settings
+    public static function create(string $dir, string $logFile = '', bool $mailInbox = false, bool $demoPhotos = false): Settings
     {
         $env = static fn (string $name, string $default): string => is_string(getenv($name)) && getenv($name) !== '' ? (string) getenv($name) : $default;
         $root = dirname(__DIR__, 2);
@@ -35,6 +35,7 @@ final class TestSettings
             backupDir: $dir . '/backups',
             migrationsDir: $root . '/database/migrations',
             mailInbox: $mailInbox,
+            demoPhotos: $demoPhotos, // örnek veri fotoğrafları yalnızca fotoğraf testinde çizilir (hız)
         );
         if ($settings->usesMySql() && !str_ends_with($settings->dbName, '_test')) {
             // Testler her seferinde tabloları boşaltır; gerçek veritabanı yanlışlıkla silinmesin.

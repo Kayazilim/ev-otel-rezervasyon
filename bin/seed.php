@@ -18,14 +18,15 @@ if (!$force && !$container->needsDemoData()) {
     exit(1);
 }
 
-$summary = (new App\Seed\DemoSeeder($container))->run();
-
-// Eski demo yüklemeleri artık hiçbir kayda bağlı olmadığı için temizlenir
+// Eski yüklemeler yeni veride hiçbir kayda bağlı olmayacağı için önce temizlenir;
+// örnek veri kendi fotoğraflarını (GD ile çizilen) ardından yazar.
 foreach (glob($container->settings->uploadDir . '/*') ?: [] as $file) {
     if (preg_match('/\.(jpe?g|png|webp)$/i', $file) === 1) {
         @unlink($file);
     }
 }
+
+$summary = (new App\Seed\DemoSeeder($container))->run();
 
 echo "Örnek veri yüklendi:\n";
 foreach ($summary as $label => $count) {
