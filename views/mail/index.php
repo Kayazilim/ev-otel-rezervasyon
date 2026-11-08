@@ -7,7 +7,7 @@
  */
 ?>
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h1 class="h3 mb-0">📬 Posta kutusu</h1>
+    <h1 class="h3 mb-0">Posta kutusu</h1>
     <a class="btn btn-outline-secondary btn-sm" href="<?= e($view->url('/posta-kutusu')) ?>">↻ Yenile</a>
 </div>
 <div class="alert alert-warning small">

@@ -6,16 +6,16 @@
  * @var string $currentPath
  */
 $items = [
-    '/panel' => '📋 Panel',
-    '/panel/ilanlar' => '🏠 İlanlarım',
-    '/panel/takvim' => '📅 Takvim / Fiyat',
-    '/panel/rezervasyonlar' => '🛎️ Rezervasyonlar',
-    '/panel/rapor' => '📊 Doluluk ve gelir',
-    '/panel/ilan/yeni' => '➕ Yeni ilan ekle',
+    '/panel' => 'Panel',
+    '/panel/ilanlar' => 'İlanlarım',
+    '/panel/takvim' => 'Takvim / Fiyat',
+    '/panel/rezervasyonlar' => 'Rezervasyonlar',
+    '/panel/rapor' => 'Doluluk ve gelir',
+    '/panel/ilan/yeni' => '+ Yeni ilan ekle',
 ];
 ?>
-<div class="list-group shadow-sm mb-3">
+<div class="list-group mb-3">
     <?php foreach ($items as $path => $label): ?>
-        <a class="list-group-item list-group-item-action<?= $currentPath === $path ? ' active' : '' ?>" href="<?= e($view->url($path)) ?>"><?= $label ?></a>
+        <a class="list-group-item list-group-item-action<?= $currentPath === $path ? ' active' : '' ?>" href="<?= e($view->url($path)) ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </div>

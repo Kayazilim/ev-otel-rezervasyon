@@ -117,11 +117,11 @@ final class View
     public function stars(?float $rating, int $count = 0): string
     {
         if ($rating === null) {
-            return '<span class="text-body-secondary small">Henüz puan yok</span>';
+            return '<span class="text-body-secondary">Henüz puan yok</span>';
         }
 
-        return '<span class="text-warning">★</span> <strong>' . e(number_format($rating, 1, ',', '')) . '</strong>'
-            . ($count > 0 ? ' <span class="text-body-secondary small">(' . $count . ' yorum)</span>' : '');
+        return '<span class="puan-yildiz" aria-hidden="true">★</span> <strong>' . e(number_format($rating, 1, ',', '')) . '</strong>'
+            . ($count > 0 ? ' <span class="text-body-secondary">· ' . $count . ' yorum</span>' : '');
     }
 
     public function selected(mixed $a, mixed $b): string

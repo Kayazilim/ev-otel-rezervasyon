@@ -9,6 +9,7 @@ use App\Exception\NotFoundException;
 use App\Exception\ValidationException;
 use App\Model\Amenity;
 use App\Model\BookableUnit;
+use App\Model\Photo;
 use App\Model\Property;
 use App\Model\PropertyStatus;
 use App\Model\PropertyType;
@@ -180,11 +181,25 @@ final class PropertyService
             ];
         }
         $prices = array_map(fn (BookableUnit $u): int => $u->basePrice, $units);
+        $distribution = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+        foreach ($reviews as $review) {
+            if (isset($distribution[$review['rating']])) {
+                $distribution[$review['rating']]++;
+            }
+        }
+        $photos = $this->photos->findByProperty($propertyId);
+        $gallery = array_values(array_filter($photos, fn (Photo $p): bool => $p->unitId === null));
+        $unitPhotos = [];
+        foreach ($photos as $photo) {
+            if ($photo->unitId !== null && $photo->id !== null && !isset($unitPhotos[$photo->unitId])) {
+                $unitPhotos[$photo->unitId] = $photo->id;
+            }
+        }
 
         return new PropertyDetail(
             $property,
             $units,
-            $this->photos->findByProperty($propertyId),
+            $photos,
             $amenities,
             $summary['avg'] ?? null,
             $summary['count'] ?? 0,
@@ -193,6 +208,9 @@ final class PropertyService
             $viewer !== null && $viewer->id !== null && $this->favorites->exists($viewer->id, $propertyId),
             $this->refunds->policyFor($property->cancellationPolicy)->description(),
             $prices === [] ? 0 : min($prices),
+            $distribution,
+            $unitPhotos,
+            $gallery === [] ? $photos : $gallery,
         );
     }
 

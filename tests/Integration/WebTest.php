@@ -121,6 +121,21 @@ final class WebTest extends AppTestCase
         self::assertStringContainsString('/api/musaitlik', $html, 'Fiyat ve müsaitlik sayfa yenilenmeden JSON uç noktasından gelir');
     }
 
+    #[Group('FR-09')]
+    #[Group('FR-24')]
+    public function testPropertyPageShowsRatingDistributionAndEveryReview(): void
+    {
+        $detail = $this->c->propertyService()->detail(1, null);
+        self::assertGreaterThanOrEqual(4, $detail->reviewCount, 'Örnek veride ilan başına birden çok yorum');
+
+        $html = $this->get('/ilan/1')->body;
+
+        self::assertStringContainsString($detail->reviewCount . ' değerlendirme', $html);
+        self::assertSame(5, substr_count($html, 'class="puan-satiri"'), "5'ten 1'e puan dağılımı");
+        self::assertSame($detail->reviewCount, substr_count($html, 'class="yorum"'), 'Yayındaki yorumların hepsi listelenir');
+        self::assertSame($detail->reviewCount, array_sum($detail->ratingDistribution));
+    }
+
     /** NFR-12: form alanlarının her biri bir <label for> veya aria-label ile etiketlidir (ekran okuyucu). */
     #[Group('NFR-12')]
     public function testFormFieldsAreLabelled(): void

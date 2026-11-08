@@ -14,7 +14,7 @@ $role = $old['rol'] ?? 'musteri';
     <div class="col-12 col-md-6 col-lg-5">
         <div class="card shadow-sm h-100">
             <div class="card-body p-4">
-                <h1 class="h4 fw-bold mb-3">GİRİŞ YAP</h1>
+                <h1 class="h3 mb-4">Giriş yap</h1>
                 <form method="post" action="<?= e($view->url('/giris')) ?>" novalidate>
                     <?= $view->csrfField() ?>
                     <input type="hidden" name="donus" value="<?= e($returnTo) ?>">
@@ -27,11 +27,11 @@ $role = $old['rol'] ?? 'musteri';
                         <input type="password" class="form-control<?= $view->invalid($loginErrors, 'giris') ?>" id="giris-parola" name="parola" autocomplete="current-password" required>
                         <?= $view->error($loginErrors, 'giris') ?>
                     </div>
-                    <button type="submit" class="btn btn-success w-100 fw-semibold">GİRİŞ YAP</button>
+                    <button type="submit" class="btn btn-primary w-100">Giriş yap</button>
                 </form>
                 <p class="small mt-3 mb-1"><a href="<?= e($view->url('/parola-sifirla')) ?>">Parolamı unuttum</a> → sıfırlama bağlantısı</p>
                 <?php if ($mailInbox ?? false): ?>
-                    <p class="small mb-1 text-body-secondary">📬 Prototip: gönderilen e-postalar <a href="<?= e($view->url('/posta-kutusu')) ?>">Posta kutusu</a> sayfasında görünür.</p>
+                    <p class="small mb-1 text-body-secondary">Prototip: gönderilen e-postalar <a href="<?= e($view->url('/posta-kutusu')) ?>">Posta kutusu</a> sayfasında görünür.</p>
                 <?php endif; ?>
                 <p class="small mb-0">Hesabın yok mu? <a href="#kayit">Kayıt ol →</a></p>
             </div>
@@ -40,7 +40,7 @@ $role = $old['rol'] ?? 'musteri';
     <div class="col-12 col-md-6 col-lg-5" id="kayit">
         <div class="card shadow-sm h-100">
             <div class="card-body p-4">
-                <h2 class="h4 fw-bold mb-3">KAYIT OL</h2>
+                <h2 class="h3 mb-4">Kayıt ol</h2>
                 <form method="post" action="<?= e($view->url('/kayit')) ?>" novalidate>
                     <?= $view->csrfField() ?>
                     <input type="hidden" name="donus" value="<?= e($returnTo) ?>">
@@ -78,7 +78,7 @@ $role = $old['rol'] ?? 'musteri';
                         </div>
                         <?= $view->error($registerErrors, 'rol') ?>
                     </fieldset>
-                    <button type="submit" class="btn btn-success w-100 fw-semibold">HESAP OLUŞTUR</button>
+                    <button type="submit" class="btn btn-primary w-100">Hesap oluştur</button>
                 </form>
             </div>
         </div>
