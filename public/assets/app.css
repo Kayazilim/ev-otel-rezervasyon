@@ -136,3 +136,9 @@ body {
         display: none;
     }
 }
+
+/* Posta kutusu (geliştirme): ileti gövdesi satır sonlarını korur, uzun bağlantılar taşmaz */
+.posta-govdesi {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

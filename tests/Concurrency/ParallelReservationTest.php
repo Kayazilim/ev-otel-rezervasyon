@@ -145,7 +145,14 @@ final class ParallelReservationTest extends AppTestCase
         $other = (int) $this->user()->id;
         $jobs = [['op' => 'iptal', 'number' => $first->number, 'customer' => $this->customerId]];
         for ($i = 0; $i < 10; $i++) {
-            $jobs[] = ['op' => 'rezervasyon', 'customer' => $other, 'unit' => $this->unit->id, 'in' => '2026-11-10', 'out' => '2026-11-12', 'total' => $this->total('2026-11-10', '2026-11-12')];
+            $jobs[] = [
+                'op' => 'rezervasyon',
+                'customer' => $other,
+                'unit' => $this->unit->id,
+                'in' => '2026-11-10',
+                'out' => '2026-11-12',
+                'total' => $this->total('2026-11-10', '2026-11-12'),
+            ];
         }
         $outputs = $this->runMixed($jobs);
 

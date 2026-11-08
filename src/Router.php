@@ -19,6 +19,7 @@ final class Router
         'id' => '\d+',
         'no' => 'RZ-\d{8}-[A-Z0-9]{6}',
         'token' => '[a-f0-9]{64}',
+        'ileti' => '\d{8}-\d{6}-[0-9a-f]{6}', // simüle posta kutusundaki ileti (FileMailer dosya adı)
     ];
 
     /** @var list<array{method: string, regex: string, handler: array{0: class-string, 1: string}, access: string|list<Role>|null}> */

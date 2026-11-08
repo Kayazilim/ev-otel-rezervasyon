@@ -6,6 +6,7 @@ namespace App\Core;
 
 use App\Exception\BusyException;
 use App\Exception\ForbiddenException;
+use App\Exception\MailDeliveryException;
 use App\Exception\NotFoundException;
 use App\Exception\StorageUnavailableException;
 use App\Model\Role;
@@ -54,6 +55,9 @@ final class Kernel
             $view->share('currentUser', $auth->user());
             $view->share('currentPath', $request->path);
             $view->share('appName', $this->container->settings->appName);
+            // FR-04: e-posta modu ve (yalnızca bu bilgisayardan) simüle posta kutusu bağlantısı
+            $view->share('mailMode', $this->container->settings->mailDriver);
+            $view->share('mailInbox', $this->container->mailbox()->enabled() && $request->isFromLoopback());
 
             $match = $this->container->router()->match($request->method, $request->path);
             if ($match === null) {
@@ -97,6 +101,11 @@ final class Kernel
             return $this->secure($this->error($view, 403, 'Yetkiniz yok', $e->getMessage()));
         } catch (BusyException $e) {
             return $this->secure($this->error($view, 503, 'Yoğunluk', $e->getMessage()));
+        } catch (MailDeliveryException $e) {
+            // İleti yazılamadıysa kullanıcıya "gönderildi" denmez; ayrıntı (klasör yolu) yalnızca günlüğe yazılır.
+            $logger->error('eposta_gonderilemedi', ['mesaj' => $e->getMessage()]);
+
+            return $this->secure($this->error($view, 503, 'E-posta gönderilemedi', 'Sıfırlama e-postası şu anda gönderilemiyor. Lütfen biraz sonra tekrar deneyin.'));
         } catch (StorageUnavailableException $e) {
             $logger->error('veri_deposu_yok', ['mesaj' => $e->getMessage()]);
 

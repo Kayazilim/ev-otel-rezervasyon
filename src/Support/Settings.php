@@ -38,6 +38,15 @@ final class Settings
         public readonly string $dbPassword = '',
         public readonly string $backupDir = '',
         public readonly string $migrationsDir = '',
+        public readonly string $mailDriver = 'dosya',
+        public readonly bool $mailInbox = false,
+        public readonly string $mailFrom = '',
+        public readonly string $mailFromName = 'EvOtel',
+        public readonly string $smtpHost = '',
+        public readonly int $smtpPort = 587,
+        public readonly string $smtpSecure = 'tls',
+        public readonly string $smtpUser = '',
+        public readonly string $smtpPassword = '',
     ) {
     }
 
@@ -46,14 +55,23 @@ final class Settings
         return $this->storage === 'mysql';
     }
 
+    /** FR-04 e-postası gerçekten gönderilir mi (SMTP), yoksa simüle posta kutusuna mı yazılır (storage/mail)? */
+    public function usesSmtp(): bool
+    {
+        return $this->mailDriver === 'smtp';
+    }
+
     /** @param array<string, mixed> $config */
     public static function fromArray(array $config): self
     {
         $str = static fn (string $k, string $d): string => isset($config[$k]) && is_string($config[$k]) ? $config[$k] : $d;
         $int = static fn (string $k, int $d): int => isset($config[$k]) && is_int($config[$k]) ? $config[$k] : $d;
         $flt = static fn (string $k, float $d): float => isset($config[$k]) && is_numeric($config[$k]) ? (float) $config[$k] : $d;
+        $bool = static fn (string $k, bool $d): bool => isset($config[$k]) && is_bool($config[$k]) ? $config[$k] : $d;
         $db = is_array($config['db'] ?? null) ? $config['db'] : [];
         $dbStr = static fn (string $k, string $d): string => isset($db[$k]) && is_string($db[$k]) ? $db[$k] : $d;
+        $smtp = is_array($config['smtp'] ?? null) ? $config['smtp'] : [];
+        $smtpStr = static fn (string $k, string $d): string => isset($smtp[$k]) && is_string($smtp[$k]) ? $smtp[$k] : $d;
 
         return new self(
             appName: $str('app_name', 'EvOtel'),
@@ -84,6 +102,15 @@ final class Settings
             dbPassword: $dbStr('password', ''),
             backupDir: $str('backup_dir', ''),
             migrationsDir: $str('migrations_dir', ''),
+            mailDriver: $str('mail_driver', 'dosya') === 'smtp' ? 'smtp' : 'dosya',
+            mailInbox: $bool('mail_inbox', false),
+            mailFrom: $str('mail_from', ''),
+            mailFromName: $str('mail_from_name', 'EvOtel'),
+            smtpHost: $smtpStr('host', ''),
+            smtpPort: isset($smtp['port']) && is_int($smtp['port']) ? $smtp['port'] : 587,
+            smtpSecure: in_array($smtpStr('secure', 'tls'), ['tls', 'ssl', 'yok'], true) ? $smtpStr('secure', 'tls') : 'tls',
+            smtpUser: $smtpStr('user', ''),
+            smtpPassword: $smtpStr('password', ''),
         );
     }
 }

@@ -15,7 +15,8 @@
         "squizlabs/php_codesniffer": "^3.10"
     },
     "suggest": {
-        "ext-pdo_mysql": "Aşama 3 MySQL deposu için (EVOTEL_STORAGE=mysql)"
+        "ext-pdo_mysql": "Aşama 3 MySQL deposu için (EVOTEL_STORAGE=mysql)",
+        "ext-openssl": "Gerçek e-posta (SMTP, TLS) için (config/yerel.php: mail_driver = smtp)"
     },
     "autoload": {
         "psr-4": {
@@ -40,6 +41,7 @@
         "migrate:fresh": "php bin/migrate.php --fresh --seed",
         "gorev": "php bin/gorev.php",
         "yedek": "php bin/yedek.php",
+        "eposta:dene": "php bin/eposta-dene.php",
         "test": [
             "Composer\\Config::disableProcessTimeout",
             "phpunit"

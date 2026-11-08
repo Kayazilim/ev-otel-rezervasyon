@@ -15,7 +15,7 @@ use RuntimeException;
  */
 final class TestSettings
 {
-    public static function create(string $dir, string $logFile = ''): Settings
+    public static function create(string $dir, string $logFile = '', bool $mailInbox = false): Settings
     {
         $env = static fn (string $name, string $default): string => is_string(getenv($name)) && getenv($name) !== '' ? (string) getenv($name) : $default;
         $root = dirname(__DIR__, 2);
@@ -34,6 +34,7 @@ final class TestSettings
             dbPassword: $env('EVOTEL_TEST_DB_PASSWORD', ''),
             backupDir: $dir . '/backups',
             migrationsDir: $root . '/database/migrations',
+            mailInbox: $mailInbox,
         );
         if ($settings->usesMySql() && !str_ends_with($settings->dbName, '_test')) {
             // Testler her seferinde tabloları boşaltır; gerçek veritabanı yanlışlıkla silinmesin.

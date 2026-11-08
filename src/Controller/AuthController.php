@@ -109,7 +109,8 @@ final class AuthController extends Controller
         }
         $base = ($request->isHttps() ? 'https://' : 'http://') . $request->header('Host');
         $this->authService->requestPasswordReset($email, fn (string $token): string => $base . $this->view->url('/parola-sifirla/' . $token));
-        $this->flash('info', 'Bu e-posta kayıtlıysa sıfırlama bağlantısı gönderildi. (Simüle e-posta: storage/mail klasörü)');
+        // Kayıtlı olsun olmasın aynı yanıt (hesap varlığı sızdırılmaz); simüle modda giriş sayfası posta kutusunu gösterir.
+        $this->flash('info', 'Bu e-posta adresiyle kayıtlı bir hesap varsa sıfırlama bağlantısı gönderildi. Güvenlik nedeniyle adresin kayıtlı olup olmadığını göstermiyoruz.');
 
         return $this->redirect('/giris');
     }

@@ -117,6 +117,14 @@ final class Request
         return is_string($https) && $https !== '' && strtolower($https) !== 'off';
     }
 
+    /** İstek bu bilgisayardan mı geldi? Geliştirme araçları (ör. /posta-kutusu) yalnızca yerelden açılır. */
+    public function isFromLoopback(): bool
+    {
+        $address = $this->server['REMOTE_ADDR'] ?? '';
+
+        return is_string($address) && in_array($address, ['127.0.0.1', '::1', '::ffff:127.0.0.1'], true);
+    }
+
     /** Adres çubuğundaki yol + sorgu (giriş sonrası geri dönmek için). */
     public function fullPath(): string
     {

@@ -65,4 +65,23 @@ final class SettingsTest extends TestCase
         self::assertStringEndsWith('storage/data', str_replace('\\', '/', $settings->dataDir));
         self::assertSame('json', Settings::fromArray(['storage' => 'bilinmeyen'])->storage, 'Geçersiz değer JSON\'a düşer');
     }
+
+    #[Group('FR-04')]
+    public function testMailIsSimulatedUnlessSmtpIsChosenExplicitly(): void
+    {
+        $defaults = Settings::fromArray([]);
+        self::assertFalse($defaults->usesSmtp(), 'Varsayılan: simüle posta kutusu (storage/mail)');
+        self::assertFalse($defaults->mailInbox, 'Posta kutusu sayfası yalnızca ayarla açılır');
+        self::assertSame('dosya', Settings::fromArray(['mail_driver' => 'pop3'])->mailDriver, 'Geçersiz değer simüleye düşer');
+
+        $smtp = Settings::fromArray([
+            'mail_driver' => 'smtp',
+            'mail_inbox' => true,
+            'smtp' => ['host' => 'smtp.ornek.test', 'port' => 465, 'secure' => 'ssl', 'user' => 'kullanici@ornek.test', 'password' => 'gizli'],
+        ]);
+        self::assertTrue($smtp->usesSmtp());
+        self::assertTrue($smtp->mailInbox);
+        self::assertSame(['smtp.ornek.test', 465, 'ssl', 'kullanici@ornek.test'], [$smtp->smtpHost, $smtp->smtpPort, $smtp->smtpSecure, $smtp->smtpUser]);
+        self::assertSame('tls', Settings::fromArray(['smtp' => ['secure' => 'bilinmeyen']])->smtpSecure, 'Geçersiz güvenlik ayarı STARTTLS\'e düşer');
+    }
 }
