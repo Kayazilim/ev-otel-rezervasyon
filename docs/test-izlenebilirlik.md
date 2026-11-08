@@ -3,9 +3,9 @@
 > Bu dosya `php bin/izlenebilirlik.php` ile **otomatik üretilir**; elle düzenlemeyin. Yeniden üretmek için: `composer izlenebilirlik`.
 > Kaynaklar: [SRS v2.3](srs.md) kodları, testlerdeki `#[Group('FR-18')]` öznitelikleri ve test adlarındaki kodlar (ör. `testT05...`, `testCs10...`). Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group FR-18`.
 
-Üretilme: 08.11.2026 06:56. Test metodu sayısı: 145.
-- JSON deposunda son çalıştırma: 145 test metodu, 138 geçti, 0 kaldı, 7 atlandı.
-- MySQL deposunda son çalıştırma: 145 test metodu, 145 geçti, 0 kaldı, 0 atlandı.
+Üretilme: 08.11.2026 16:19. Test metodu sayısı: 161.
+- JSON deposunda son çalıştırma: 161 test metodu, 154 geçti, 0 kaldı, 7 atlandı.
+- MySQL deposunda son çalıştırma: 161 test metodu, 161 geçti, 0 kaldı, 0 atlandı.
 
 ## Özet
 
@@ -35,7 +35,7 @@
 | **FR-01** | Sistem, yeni kullanıcıların ad, soyad, e-posta ve parola bilgileriyle hesap oluşturmasına izin vermelidir. | `AuthServiceTest::testAdminAccountCannotBeSelfRegistered`<br>`AuthServiceTest::testRegisterStoresPasswordHashNotPlainText`<br>`AuthServiceTest::testRegisterValidationAndUniqueEmail` | ✓ 3/3 | ✓ 3/3 |
 | **FR-02** | Sistem, kayıtlı kullanıcıların geçerli kimlik bilgileriyle oturum açmasına izin vermelidir. | `AuthServiceTest::testFiveFailedLoginsLockForFifteenMinutes`<br>`AuthServiceTest::testRestrictedAccountCannotLogIn` | ✓ 2/2 | ✓ 2/2 |
 | **FR-03** | Sistem, oturum açmış kullanıcıya güvenli biçimde çıkış yapma olanağı sunmalıdır. | `WebTest::testLogoutEndsTheSession` | ✓ 1/1 | ✓ 1/1 |
-| **FR-04** | Sistem, kullanıcıların doğrulanmış e-posta veya yapılandırılmış doğrulama yöntemiyle parola sıfırlama talebi oluşturm… | `AuthServiceTest::testResetTokenIsSingleUseAndExpiresAfter60Minutes`<br>`SettingsTest::testConfiguredNumbersMatchTheSrs` | ✓ 2/2 | ✓ 2/2 |
+| **FR-04** | Sistem, kullanıcıların doğrulanmış e-posta veya yapılandırılmış doğrulama yöntemiyle parola sıfırlama talebi oluşturm… | `AuthServiceTest::testResetTokenIsSingleUseAndExpiresAfter60Minutes`<br>`FileMailboxTest::testIdsThatAreNotMailFileNamesAreRejected`<br>`FileMailboxTest::testMessagesAreListedNewestFirstAndReadBack`<br>`FileMailerTest::testFailureIsReportedInsteadOfPretendingTheMailWasSent`<br>`FileMailerTest::testMessageIsWrittenWithSingleLineHeaders`<br>`PasswordResetWebTest::testDeliveryFailureIsReportedAndLogged`<br>`PasswordResetWebTest::testMailboxIsOnlyServedLocallyAndWhenEnabled`<br>`PasswordResetWebTest::testResetLinkFromTheMailboxSetsANewPassword`<br>`PasswordResetWebTest::testSmtpModeUsesTheRealMailerAndHidesTheMailbox`<br>`PasswordResetWebTest::testUnknownAndKnownAddressesGetTheSameAnswer`<br>`SettingsTest::testConfiguredNumbersMatchTheSrs`<br>`SettingsTest::testMailIsSimulatedUnlessSmtpIsChosenExplicitly`<br>`SmtpMailerTest::testProbeAuthenticatesWithoutSendingAMessage`<br>`SmtpMailerTest::testRecipientWithALineBreakIsRefusedBeforeConnecting`<br>`SmtpMailerTest::testRejectedLoginIsReportedWithoutLeakingThePassword`<br>`SmtpMailerTest::testSendsUtf8MessageAfterAuthenticating`<br>`SmtpMailerTest::testStartTlsIsRequiredWhenConfigured`<br>`SmtpMailerTest::testUnreachableServerIsReported` | ✓ 18/18 | ✓ 18/18 |
 | **FR-05** | Sistem, müşteri, ilan sahibi ve yönetici işlemlerini rol bazında sınırlandırmalıdır. | `AuthServiceTest::testAdminAccountCannotBeSelfRegistered`<br>`WebTest::testGuestIsRedirectedToLoginKeepingTheTarget`<br>`WebTest::testRolesAreEnforcedOnTheServer` | ✓ 3/3 | ✓ 3/3 |
 | **FR-06** | Sistem; konum, giriş tarihi, çıkış tarihi, kişi sayısı ve konaklama türüne göre arama yapabilmeli; yalnızca aralığın… | `ReservationFlowTest::testT08SearchAndReservationUseTheSameRule`<br>`WebTest::testSearchListsAvailablePropertiesAndValidatesDates` | ✓ 2/2 | ✓ 2/2 |
 | **FR-07** | Sistem, arama sonuçlarını fiyat aralığı, puan, konaklama türü, oda tipi ve olanaklara göre filtrelemelidir. | `ManagementFeaturesTest::testSearchFiltersByTypeRoomAmenityAndPriceAndSorts` | ✓ 1/1 | ✓ 1/1 |

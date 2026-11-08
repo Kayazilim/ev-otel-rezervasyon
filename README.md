@@ -66,6 +66,27 @@ Tüm demo hesaplarının parolası: `Demo1234!` (yalnızca yerel demo verisi, `s
 
 Örnek veri: 9 kullanıcı, 8 ilan, 16 oda/birim, 6 oda tipi, 18 rezervasyon (tamamlanan, devam eden, bekleyen, iptal, ret, süresi dolan). Ayrıca yorumlar, takvim istisnaları, sezon/hafta sonu/uzun konaklama kuralları, KDV ve temizlik ücreti var.
 
+### Parola sıfırlama ve e-posta
+
+Parola sıfırlama bağlantısı (FR-04) 60 dakika geçerli ve tek kullanımlıktır. Güvenlik nedeniyle kayıtlı olmayan bir adres girildiğinde de aynı mesaj gösterilir; böylece hangi e-postaların kayıtlı olduğu dışarıdan öğrenilemez. Kendi adresinizle denemek için önce o adresle kayıt olun (`composer seed` verileri sıfırladığı için o kayıt da silinir).
+
+| Kip | Ne olur | Nasıl açılır |
+| --- | --- | --- |
+| Simüle (varsayılan) | E-posta gerçek adrese gitmez. İleti `storage/mail/` klasörüne yazılır ve **Posta kutusu** sayfasında görünür: `http://localhost:8000/posta-kutusu` (bağlantısı giriş sayfasında ve alt bilgide). Sayfa yalnızca bu bilgisayardan açılır. | Ek ayar gerekmez. Bir sunucuya kurulursa `EVOTEL_POSTA_KUTUSU=0` ile kapatın. |
+| Gerçek e-posta (SMTP) | İleti alıcının gelen kutusuna gider (ör. Gmail). | `config/yerel.ornek.php` dosyasını `config/yerel.php` adıyla kopyalayıp doldurun. Bu dosya git'e girmez. |
+
+Gmail'de normal parolanız çalışmaz, uygulama şifresi gerekir: Google Hesabı → Güvenlik → 2 Adımlı Doğrulama'yı açın → **Uygulama şifreleri** bölümünden 16 karakterlik bir şifre oluşturup `config/yerel.php` içindeki `password` alanına yazın. Sonra önce bağlantıyı deneyin (ileti göndermez), ardından kendinize bir deneme iletisi gönderin:
+
+```bash
+php bin/eposta-dene.php --kontrol
+```
+
+```bash
+php bin/eposta-dene.php adiniz@gmail.com
+```
+
+Gönderim başarısız olursa kullanıcıya "gönderildi" denmez: 503 hatası gösterilir ve ayrıntı `storage/logs/app.log` dosyasına yazılır.
+
 ### Zamanlanmış görev ve günlük yedek
 
 `bin/gorev.php` süresi dolan bekletmeleri **Süresi Doldu**, çıkış günü gelen onaylı rezervasyonları **Tamamlandı** yapar ve o gün yedek alınmamışsa **günlük yedeği** alır (NFR-09, son 7 yedek saklanır). Dakikada bir çalıştırılır:
@@ -94,7 +115,7 @@ composer test
 
 | Komut | Ne yapar |
 | --- | --- |
-| `composer test` | Tüm PHPUnit testleri, JSON deposunda (193 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
+| `composer test` | Tüm PHPUnit testleri, JSON deposunda (209 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
 | `composer test:mysql` | Aynı testler MySQL'de (`evotel_test` veritabanı; `EVOTEL_TEST_DB_HOST/PORT/USER/PASSWORD`). Testler her seferinde tabloları boşalttığı için adı `_test` ile bitmeyen veritabanında çalışmaz. |
 | `composer test:hizli` | Eşzamanlılık testleri hariç |
 | `composer kapsam` | Satır kapsamı (Xdebug gerekir; HTML rapor `coverage/`) |
@@ -102,7 +123,7 @@ composer test
 | `composer analiz` | PHPStan statik analiz (seviye 6; `src`, `bin`, `config`, `tests`) |
 | `composer stil` / `composer stil:duzelt` | PSR-12 kod stili denetimi / otomatik düzeltme |
 
-Son çalıştırma (08.11.2026): JSON deposunda 193 test / 1277 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 193 test / 1331 doğrulama, hepsi geçti. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,1 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
+Son çalıştırma (08.11.2026): JSON deposunda 209 test / 1378 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 209 test / 1432 doğrulama, hepsi geçti. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,1 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
 
 Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group FR-18` (her test doğruladığı gereksinim kodunu `#[Group]` olarak taşır).
 
@@ -119,7 +140,7 @@ Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group F
 | **Eşzamanlılık:** transaction ve satır kilidi | MySQL: `BEGIN … SELECT … FOR UPDATE … COMMIT`, kilit bekleme 5 sn, 2 yeniden deneme; JSON: dosya kilidi; koşullu güncelleme + `UNIQUE(birim, gece)`; 50 süreçli testler |
 | **Güvenlik:** hazırlıklı ifadeler, `password_hash`, XSS kaçışı, CSRF, `session_regenerate_id`, her işlemde yetki | `MySqlDatabase` (`ATTR_EMULATE_PREPARES=false`), `AuthService`, `e()`, `Kernel` (CSRF), `Auth::login` ve parola değişiminde oturum kimliği yenileme, rota yetkisi + servislerde sahiplik denetimi |
 | **Etkileşim:** JSON döndüren AJAX ucu | `GET /api/musaitlik` (`ApiController`) + 4 kendiliğinden yenilenen bölüm (`/parca/...`) |
-| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (193 test), [docs/test-izlenebilirlik.md](docs/test-izlenebilirlik.md) |
+| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (209 test), [docs/test-izlenebilirlik.md](docs/test-izlenebilirlik.md) |
 | **Kod kalitesi:** PHPStan, hatasız çalışma, anlaşılır hata mesajları | `composer analiz` (seviye 6, testler dahil), alan bazlı doğrulama mesajları, JSON uçta JSON hata, depo erişilemezse 503 ve açıklama |
 | **Süreç:** GitHub deposu, anlamlı commit geçmişi, Projects backlog, README | Bu depo; her SRS gereksinimi bir issue, 3 aşama milestone'u, [GitHub Projects panosu](https://github.com/users/Kayazilim/projects/1) (Yapılacak / Yapılıyor / Bitti, SRS önceliği, aşama görünümleri; issue kapanınca veya PR birleşince kart kendiliğinden Bitti'ye geçer), PR ile birleştirme |
 
@@ -143,13 +164,14 @@ Proje kartı ve ortak şartlar:
 
 ```
 public/      ön denetleyici (index.php) ve CSS
-config/      app.php (süre, limit, oran, depo ayarları), routes.php (adres → controller + yetki)
+config/      app.php (süre, limit, oran, depo ve e-posta ayarları), routes.php (adres → controller + yetki),
+             yerel.ornek.php (yerel.php örneği: SMTP gibi git'e girmeyen ayarlar)
 src/         Core, Controller, Service, Repository (Json, MySql), Model, Support, Exception, Seed
 views/       Bootstrap görünümleri (her çıktı e() ile kaçışlanır)
 database/    migrations/ (MySQL şeması, 3NF), sorgular/ (JOIN'li rapor sorgusu)
-bin/         seed.php, gorev.php, migrate.php, yedek.php, izlenebilirlik.php
+bin/         seed.php, gorev.php, migrate.php, yedek.php, izlenebilirlik.php, eposta-dene.php
 storage/     data (JSON tablolar), uploads, logs, mail (simüle e-posta), backups – web'den erişilemez
-tests/       Unit, Integration, Concurrency (+ bin/rezervasyon-isci.php paralel süreç)
+tests/       Unit, Integration, Concurrency (+ bin/rezervasyon-isci.php paralel süreç, bin/sahte-smtp.php)
 docs/        srs.md, tasarim.md, test-izlenebilirlik.md, yedekleme.md, ai-gunlugu.md, arayüz tasarımları
 ```
 

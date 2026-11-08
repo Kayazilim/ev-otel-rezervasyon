@@ -39,7 +39,7 @@ ev-otel-rezervasyon/
 │   │   ├── Refund/      CancellationPolicyInterface, Flexible, Moderate, Strict
 │   │   ├── State/       ReservationState ve 6 durum sınıfı
 │   │   ├── Dto/         ekran ve istek veri taşıyıcıları
-│   │   └── Mail/        MailerInterface, FileMailer (simüle e-posta)
+│   │   └── Mail/        MailerInterface; FileMailer + FileMailbox (simüle), SmtpMailer (isteğe bağlı gerçek gönderim)
 │   ├── Repository/
 │   │   ├── *RepositoryInterface.php, TransactionManagerInterface.php
 │   │   ├── Json/        (Aşama 2) JsonDatabase + 17 depo sınıfı + JsonDataSnapshot
@@ -897,7 +897,8 @@ Aşama 3'te aynı arayüzler PDO ile yazıldı: `beginTransaction()`, `SELECT ..
 | İlan silme (FR-21) | Gelecekte Beklemede veya Onaylandı rezervasyonu olan ilan silinemez; pasife alınabilir. | Bekleyen talepleri olan ilanın silinmesi müşteriyi ortada bırakır. |
 | Tamamlandı geçişi (FR-40) | Çıkış günü gelen (çıkış ≤ bugün) Onaylandı rezervasyonlar tamamlanır. | FR-40 ölçütü: "çıkış tarihi gelmemiş rezervasyonlar değişmez". |
 | Rapor dönemi (BR-30) | Başlangıç ve bitiş günü dahildir; aktif birim = durumu aktif ve ilanı aktif/pasif olan birim. | BR-30'da dönem sınırı ve "aktif birim" tanımlı değildi. |
-| Parola sıfırlama e-postası | E-posta servisi olmadığı için ileti `storage/mail/` klasörüne yazılır (simüle gelen kutusu). | SRS 2.5: e-posta harici servise bağlıdır. |
+| Parola sıfırlama e-postası | Varsayılan: e-posta servisi olmadığı için ileti `storage/mail/` klasörüne yazılır ve geliştirme ortamında `/posta-kutusu` sayfasında görünür (yalnızca yerel istek; `EVOTEL_POSTA_KUTUSU=0` ile kapanır; `Cache-Control: no-store`). İsteğe bağlı: `config/yerel.php` ile gerçek gönderim (`SmtpMailer`: STARTTLS veya TLS, AUTH PLAIN/LOGIN, UTF-8 konu; harici kütüphane yok). İkisi aynı `MailerInterface`'i uygular (Strategy); `AuthService` değişmez. | SRS 2.5: e-posta harici servise bağlıdır; FR-04 "yapılandırılmış doğrulama yöntemi"ne izin verir. Posta kutusunda sıfırlama jetonları bulunduğu için sayfa uzaktan açılmaz. |
+| Hesap varlığı (FR-04) | Kayıtlı olmayan adres için de aynı mesaj ve aynı yönlendirme verilir, ileti gönderilmez. Gönderim başarısız olursa "gönderildi" denmez: 503 gösterilir, olay günlüğe yazılır (`eposta_gonderilemedi`). | OWASP parola sıfırlama önerisi: hesabın var olup olmadığı yanıttan anlaşılmamalı. Sınırlama: SMTP kipinde gönderim eşzamanlıdır; yanıt süresindeki fark hesap varlığını sezdirebilir. Gerçek kullanımda gönderim kuyruğa alınmalıdır. |
 | Profil alanları (SRS 11.5 açık karar) | Yalnızca ad, soyad ve parola değiştirilebilir; e-posta ve rol değiştirilemez. | SRS 11.5'teki öneri uygulandı. |
 | Yorum denetimi durumları | `yayinda`, `incelemede`, `gizlendi`. | ER'de değerler belirtilmemişti. |
 
