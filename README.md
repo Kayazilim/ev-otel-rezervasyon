@@ -21,7 +21,7 @@ Tesis sahibi oda veya ev ilanı açar ve fiyat kurallarını tanımlar. Misafir 
 | 2. Veritabanısız geliştirme (vize) | Tüm işlevler; veriler `storage/data` altındaki **JSON dosyalarında** | **Etkin depo** (varsayılan) |
 | 3. Veritabanı (final) | Aynı Repository arayüzlerinin PDO + MySQL uygulaması, SQL migration'lar, seed, JOIN'li rapor, transaction + satır kilidi | Kod hazır ve testli; `EVOTEL_STORAGE=mysql` ile çalışır |
 
-GitHub'da her SRS gereksinimi bir issue'dur ve aşamalar milestone olarak izlenir: [milestone'lar](https://github.com/Kayazilim/ev-otel-rezervasyon/milestones) · [issue'lar](https://github.com/Kayazilim/ev-otel-rezervasyon/issues).
+GitHub'da her SRS gereksinimi bir issue'dur; aşamalar milestone olarak, iş akışı Projects panosunda (Yapılacak / Yapılıyor / Bitti) izlenir: [milestone'lar](https://github.com/Kayazilim/ev-otel-rezervasyon/milestones) · [issue'lar](https://github.com/Kayazilim/ev-otel-rezervasyon/issues) · [Projects panosu](https://github.com/users/Kayazilim/projects/1). Pano private'tır; ekip üyeleri erişimi depo sahibinden ister.
 
 ## Kurulum (JSON deposu, varsayılan)
 
@@ -121,7 +121,7 @@ Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group F
 | **Etkileşim:** JSON döndüren AJAX ucu | `GET /api/musaitlik` (`ApiController`) + 4 kendiliğinden yenilenen bölüm (`/parca/...`) |
 | **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (193 test), [docs/test-izlenebilirlik.md](docs/test-izlenebilirlik.md) |
 | **Kod kalitesi:** PHPStan, hatasız çalışma, anlaşılır hata mesajları | `composer analiz` (seviye 6, testler dahil), alan bazlı doğrulama mesajları, JSON uçta JSON hata, depo erişilemezse 503 ve açıklama |
-| **Süreç:** GitHub deposu, anlamlı commit geçmişi, Projects backlog, README | Bu depo; her SRS gereksinimi bir issue, 3 aşama milestone'u; GitHub Projects panosu için `gh auth refresh -s project` gerekiyor (issue #71) |
+| **Süreç:** GitHub deposu, anlamlı commit geçmişi, Projects backlog, README | Bu depo; her SRS gereksinimi bir issue, 3 aşama milestone'u, [GitHub Projects panosu](https://github.com/users/Kayazilim/projects/1) (Yapılacak / Yapılıyor / Bitti, SRS önceliği, aşama görünümleri; issue kapanınca veya PR birleşince kart kendiliğinden Bitti'ye geçer), PR ile birleştirme |
 
 Proje kartı ve ortak şartlar:
 
