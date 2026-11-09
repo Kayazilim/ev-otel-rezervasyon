@@ -912,7 +912,7 @@ Aşama 3'te aynı arayüzler PDO ile yazıldı: `beginTransaction()`, `SELECT ..
 | İlan detayındaki aylık müsaitlik takvimi | `/parca/takvim` | 5 sn |
 | İlan sahibinin gelen rezervasyonlar tablosu | `/parca/panel-rezervasyonlar` | 5 sn |
 | Rezervasyon durumu ve kalan bekletme süresi | `/parca/rezervasyon/{no}` | 5 sn |
-| Üst menüdeki okunmamış bildirim sayısı | `/parca/bildirim-sayaci` | 15 sn |
+| Üst menüdeki okunmamış bildirim sayısı | `/parca/bildirim-sayaci` | 5 sn |
 
 Her parça yalnızca HTML parçası üretir, oturumu okuduktan hemen sonra `session_write_close()` çağırır ve rota yetkisinden geçer.
 
