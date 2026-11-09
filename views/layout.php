@@ -148,7 +148,7 @@ document.addEventListener('submit', function (olay) {
 </script>
 <?php if ($currentUser !== null): ?>
 <script>
-// Kısmi yenileme: okunmamış bildirim sayısı 15 saniyede bir güncellenir.
+// Kısmi yenileme (ders kalıbı, "birkaç saniyede bir"): okunmamış bildirim sayısı 5 saniyede bir güncellenir.
 async function bildirimYenile() {
     const yanit = await fetch('<?= e($view->url('/parca/bildirim-sayaci')) ?>');
     if (yanit.ok) {
@@ -156,7 +156,7 @@ async function bildirimYenile() {
     }
 }
 bildirimYenile();
-setInterval(bildirimYenile, 15000);
+setInterval(bildirimYenile, 5000);
 </script>
 <?php endif; ?>
 </body>
