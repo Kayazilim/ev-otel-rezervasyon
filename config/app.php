@@ -35,7 +35,9 @@ $ayarlar = [
     'mail_dir' => $kok . '/storage/mail',      // simüle e-posta kutusu (parola sıfırlama)
     'views_dir' => $kok . '/views',
     // Örnek veride ilan ve oda fotoğrafları: depoda resim dosyası yoktur, GD ile çizilip storage/uploads'a yazılır (GD yoksa atlanır).
-    'demo_photos' => true,
+    // Kapalı: ders kuralı "resim, ikon veya çizim dosyası hazırlanmaz". Örnek veride emoji yer tutucu
+    // gösterilir; gerçek fotoğraflar ilan sahibi panelinden yüklenir (FR-46).
+    'demo_photos' => false,
 
     // FR-04 e-postası: 'dosya' (varsayılan; ileti storage/mail klasörüne yazılır, gerçek adrese gitmez)
     // veya 'smtp' (gerçek gönderim, ör. Gmail uygulama şifresiyle). SMTP değerleri config/yerel.php'ye yazılır.

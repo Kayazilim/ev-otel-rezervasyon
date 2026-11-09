@@ -65,3 +65,13 @@ Ders kuralı: kodlamada yapay zekâ kullanılabilir, ancak grubun her üyesi pro
 | Çıktı | Lovable'da yalnızca ön yüzlü bir tasarım prototipi hazırlandı ("EvOtel Konaklama Rehberi", 7 sayfa, 4 kredi); renk, yazı ve boşluk değerleri ve sayfa düzenleri PHP görünümlerine Bootstrap 5 ile aktarıldı (`public/assets/app.css`, `views/`), prototipin React kodu kullanılmadı. Şikâyet akışı: yöneticilere bildirim, Şikâyetlerim sayfası, yönetici yanıtında şikâyet sahibine bildirim, formda ilan seçimi. Örnek veri: 6 yeni müşteri, 36 geçmiş konaklama ve ilana özgü metinlerle 43 yorum; `DemoPhotoPainter` ile GD üzerinden çizilen 36 ilan/oda fotoğrafı (depoda resim dosyası yok). İlan sayfasında galeri, oda fotoğrafları ve puan dağılımı. 9 yeni test. |
 | Doğrulama | 218 testin tamamı JSON ve MySQL 8.4'te geçti; PHPStan ve PHPCS hatasız; T-11 tutarlılık denetimi boş. Sayfalar ekran görüntüsüyle kontrol edildi (ana sayfa, ilan detayı, arama); 375 px genişlikte yatay taşma ölçüldü ve ilan sayfasındaki taşma (sütun boşluğu) giderildi. Yerel veri yeniden yüklenmeden önce yedek alındı (`storage/backups/`). |
 | Dikkat edilecekler (08.11) | Lovable prototipi yalnızca tasarım kaynağıdır; projeye kod olarak girmez (framework yasağı). Fotoğraflar sade çizimlerdir, gerçek fotoğraf değildir; gerçek fotoğraflar ilan sahibi panelinden yüklenebilir. `composer seed` verileri sıfırlar: yeni hesaplar ve kayıtlar silinir, örnek veri yeniden çizilir (yaklaşık 3–4 sn). |
+
+### 09.11.2026 · Kaan Şahin · Claude Code (Claude Opus 5.5) · Kural denetimi
+
+| Alan | İçerik |
+| --- | --- |
+| Amaç | Projenin ders belgesindeki zorunlu kurallara göre baştan denetlenmesi. |
+| İstem özeti | Kullanıcının o ana kadar verdiği bütün talimatlar ve ders belgesi konuşma kaydından yeniden okunup proje madde madde karşılaştırıldı. |
+| Çıktı | Bulunan ihlal: ortak şartlardaki "Resim, ikon veya çizim dosyası hazırlanmaz" kuralına karşın örnek veri GD ile 36 çizim üretiyordu. `demo_photos` kapatıldı, örnek veri emoji yer tutucuya döndü; README ve tasarim.md düzeltildi. Raporlanan diğer konular: kod yalnızca hesap sahibinin private deposunda (ekip deposunda ve diğer üyelerin commit'lerinde Aşama 2 kodu yok), kapsamın vizeden geniş olması, CDN bağımlılığı, indeks gerekçesinin yazılı olmaması. |
+| Doğrulama | Yerel veri yedeklenip yeniden yüklendi (fotoğraf 0); testler çalıştırıldı. |
+| Dikkat edilecekler (09.11) | Kural dışı istekler (ör. örnek veride görsel) uygulanmadan önce kurala aykırılığı kullanıcıya sorulmalı. |

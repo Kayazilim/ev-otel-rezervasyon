@@ -65,9 +65,9 @@ Tüm demo hesaplarının parolası: `Demo1234!` (yalnızca yerel demo verisi, `s
 | Müşteri | `ali@evotel.test`, `can@evotel.test`, `deniz@evotel.test`, `burak@evotel.test`, `selin@evotel.test` | Arama, rezervasyon, simüle ödeme, iptal ve iade, yorum, favori, şikâyet |
 | Müşteri (yorumcular) | `elif@`, `emre@`, `merve@`, `okan@`, `gizem@`, `kerem@evotel.test` | Geçmiş konaklamaları ve yorumları olan hesaplar |
 
-Örnek veri: 15 kullanıcı, 8 ilan, 16 oda/birim, 6 oda tipi, 54 rezervasyon (tamamlanan, devam eden, bekleyen, iptal, ret, süresi dolan), 43 yorum (her ilanda 4–7, yalnızca tamamlanmış konaklamalardan) ve 36 fotoğraf. Ayrıca takvim istisnaları, sezon/hafta sonu/uzun konaklama kuralları, KDV ve temizlik ücreti var.
+Örnek veri: 15 kullanıcı, 8 ilan, 16 oda/birim, 6 oda tipi, 54 rezervasyon (tamamlanan, devam eden, bekleyen, iptal, ret, süresi dolan), 43 yorum (her ilanda 4–7, yalnızca tamamlanmış konaklamalardan). Ayrıca takvim istisnaları, sezon/hafta sonu/uzun konaklama kuralları, KDV ve temizlik ücreti var.
 
-**Fotoğraflar:** depoda resim dosyası yoktur (ders kuralı). Her ilanın gündüz, akşam ve iç mekân fotoğrafı ile otel odalarının fotoğrafları örnek veri yüklenirken PHP GD ile sade çizimler olarak üretilir ve `storage/uploads/` klasörüne yazılır; yani ilan sahibinin yüklediği fotoğraflar gibi veridir (FR-46). `config/app.php` içindeki `demo_photos` ayarıyla kapatılabilir; GD yoksa emoji yer tutucu gösterilir.
+**Fotoğraflar:** ders kuralı gereği resim, ikon veya çizim dosyası hazırlanmaz; örnek veride ilanlar emoji yer tutucuyla görünür. Gerçek fotoğraflar ilan sahibi panelinden (İlanlarım → Fotoğraflar) yüklenir (FR-46). `config/app.php` içindeki `demo_photos` ayarı kapalıdır ve kapalı kalmalıdır.
 
 ### Şikâyet akışı
 
@@ -162,7 +162,7 @@ Proje kartı ve ortak şartlar:
 | Kayıt, giriş, çıkış, en az 2 rol, her sayfada yetki | 3 rol; erişim kuralı her rotada (`config/routes.php`), sahiplik serviste |
 | Kritik işlemler POST + CSRF, dosya yükleme kontrolü | `Kernel` (CSRF), `PhotoService` (gerçek MIME, 2 MB, sahte uzantı, sahiplik; oda bazında fotoğraf) |
 | Arama/filtre ve rapor ekranı | `/ara` (konum, tarih, kişi, tür, fiyat, puan, oda tipi, olanak, sıralama), `/panel/rapor`, `/yonetim/rapor` |
-| HTML, CSS, Bootstrap, resim/ikon dosyası yok, telefonda kullanılabilir | Bootstrap 5 ve resmi minimalist tema (`public/assets/app.css`; renk, yazı ve boşluk değerleri Lovable'da hazırlanan tasarım prototipinden alındı, prototip kodu kullanılmadı). Depoda resim/ikon dosyası yok: simgeler Unicode, takvim CSS grid, ilan fotoğrafları örnek veri yüklenirken GD ile çizilir. 375 px genişlikte yatay taşma yok. |
+| HTML, CSS, Bootstrap, resim/ikon dosyası yok, telefonda kullanılabilir | Bootstrap 5 ve resmi minimalist tema (`public/assets/app.css`; renk, yazı ve boşluk değerleri Lovable'da hazırlanan tasarım prototipinden alındı, prototip kodu kullanılmadı). Resim, ikon veya çizim dosyası hazırlanmaz: simgeler Unicode ve emoji, takvim CSS grid; ilan fotoğrafları yalnızca ilan sahibinin yüklediği fotoğraflardır. 375 px genişlikte yatay taşma yok. |
 | Sayfanın bir bölümünü kendiliğinden yenileme | Müsaitlik takvimi, gelen rezervasyonlar, rezervasyon durumu, bildirim sayısı ([tasarim.md 12.3](docs/tasarim.md)) |
 | Koşullu güncelleme ve etkilenen satır kontrolü | `updateStatusIf` (`UPDATE … WHERE id = ? AND status = ?`, `rowCount() === 1`) |
 | Örnek veri (en az 10 oda/ev, 3 oda tipi) | 16 birim, 6 oda tipi |
