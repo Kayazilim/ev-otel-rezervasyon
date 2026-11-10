@@ -124,6 +124,8 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script>
+// Oturum sona erdiyse (zaman aşımı, başka sekmede çıkış) arka plan isteği 401 alır; giriş sayfasına dönülür.
+const girisAdresi = '<?= e($view->url('/giris')) ?>';
 // Bonus: favori formu sayfa yenilenmeden gönderilir; PHP düğmenin yeni HTML'ini döndürür.
 document.addEventListener('submit', async function (olay) {
     const form = olay.target;
@@ -134,6 +136,8 @@ document.addEventListener('submit', async function (olay) {
     const yanit = await fetch(form.action, {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'fetch'}});
     if (yanit.ok) {
         form.outerHTML = await yanit.text();
+    } else if (yanit.status === 401) {
+        window.location.href = girisAdresi;
     } else {
         form.submit();
     }
@@ -153,6 +157,8 @@ async function bildirimYenile() {
     const yanit = await fetch('<?= e($view->url('/parca/bildirim-sayaci')) ?>');
     if (yanit.ok) {
         document.getElementById('bildirim-sayaci').innerHTML = await yanit.text();
+    } else if (yanit.status === 401) {
+        window.location.href = girisAdresi;
     }
 }
 bildirimYenile();

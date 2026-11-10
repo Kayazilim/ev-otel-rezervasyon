@@ -32,7 +32,7 @@
         <form method="post" action="<?= e($view->url('/yonetim/sikayet/' . $c->id)) ?>" class="row g-2">
             <?= $view->csrfField() ?>
             <div class="col-12 col-md-3"><select name="durum" class="form-select form-select-sm" aria-label="Durum"><?php foreach ($statuses as $value => $label): ?><option value="<?= e($value) ?>"<?= $view->selected($c->status->value, $value) ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
-            <div class="col-12 col-md-7"><input type="text" name="not" class="form-control form-control-sm" placeholder="Yönetici notu (şikâyet sahibine iletilir)" aria-label="Yönetici notu"></div>
+            <div class="col-12 col-md-7"><input type="text" name="not" maxlength="2000" class="form-control form-control-sm" placeholder="Yönetici notu (şikâyet sahibine iletilir)" aria-label="Yönetici notu"></div>
             <div class="col-12 col-md-2"><button type="submit" class="btn btn-outline-primary btn-sm w-100">Kaydet</button></div>
         </form>
     </div>

@@ -152,9 +152,16 @@ final class AdminController extends Controller
 
     public function updateComplaint(Request $request, string $id): Response
     {
-        $status = ComplaintStatus::tryFrom($request->input('durum')) ?? ComplaintStatus::Inceleniyor;
-        $this->complaints->update($this->userId(), (int) $id, $status, $request->input('not'));
-        $this->flash('success', 'Şikâyet güncellendi.');
+        $status = ComplaintStatus::tryFrom($request->input('durum'));
+        try {
+            if ($status === null) {
+                throw ValidationException::single('durum', 'Geçersiz durum.');
+            }
+            $this->complaints->update($this->userId(), (int) $id, $status, $request->input('not'));
+            $this->flash('success', 'Şikâyet güncellendi.');
+        } catch (ValidationException $e) {
+            $this->flash('danger', $e->getMessage());
+        }
 
         return $this->redirect('/yonetim/sikayetler');
     }

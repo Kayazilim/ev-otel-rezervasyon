@@ -9,7 +9,7 @@
     --eo-zemin: #f7f6f3;
     --eo-kart: #ffffff;
     --eo-metin: #1f2328;
-    --eo-ikincil: #6b7280;
+    --eo-ikincil: #5f6672;      /* NFR-12: tüm zeminlerde en az 4,5:1 (eski #6b7280 kırık beyazda 4,47:1 idi) */
     --eo-kenar: #e5e2dc;
     --eo-yumusak: #f1efea;
     --eo-vurgu: #1e5b4f;
@@ -132,6 +132,22 @@ a {
 
 .ust-bar .nav-link.active {
     font-weight: 500;
+}
+
+/* NFR-12: klavyeyle gezinirken odaktaki öğe her zaman açıkça görünür (Bootstrap'in soluk odak gölgesi yetmiyor). */
+a:focus-visible,
+.btn:focus-visible,
+.nav-link:focus-visible,
+.navbar-toggler:focus-visible,
+.page-link:focus-visible,
+.dropdown-item:focus-visible,
+.btn-close:focus-visible,
+.form-check-input:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--eo-vurgu);
+    outline-offset: 2px;
 }
 
 .dropdown-menu {
@@ -811,7 +827,7 @@ legend.form-label {
 }
 
 .yorum-yildiz .bos {
-    color: var(--eo-kenar);
+    color: #8a857c;             /* boş yıldız: grafik öğe, beyaz zeminde en az 3:1 (WCAG 1.4.11) */
 }
 
 .yorum-metni {
@@ -908,7 +924,7 @@ legend.form-label {
 
 .takvim .gun.gecmis {
     background: transparent;
-    color: #b4b0a8;
+    color: #6f6a62;             /* NFR-12: geçmiş gün numarası da okunur kalır (en az 4,5:1) */
 }
 
 .takvim .gun.bugun {

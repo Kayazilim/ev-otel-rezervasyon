@@ -25,18 +25,18 @@ $first = new DateTimeImmutable($month . '-01');
             <form method="get" action="<?= e($view->url('/panel/takvim')) ?>" class="row g-2 align-items-end mb-3">
                 <div class="col-12 col-md-6">
                     <label for="ilan" class="form-label small fw-semibold mb-1">İlan</label>
-                    <select class="form-select" id="ilan" name="ilan" onchange="this.form.submit()">
+                    <select class="form-select" id="ilan" name="ilan">
                         <?php foreach ($rows as $row): ?><option value="<?= (int) $row['property']->id ?>"<?= $view->selected($row['property']->id, $propertyId) ?>><?= e($row['property']->name . ' — ' . $row['property']->city) ?></option><?php endforeach; ?>
                     </select>
                 </div>
                 <div class="col-12 col-md-4">
                     <label for="birim" class="form-label small fw-semibold mb-1">Oda / birim</label>
-                    <select class="form-select" id="birim" name="birim" onchange="this.form.submit()">
+                    <select class="form-select" id="birim" name="birim">
                         <?php foreach ($units as $unit): ?><option value="<?= (int) $unit->id ?>"<?= $view->selected($unit->id, $unitId) ?>><?= e($unit->name) ?></option><?php endforeach; ?>
                     </select>
                 </div>
                 <input type="hidden" name="ay" value="<?= e($month) ?>">
-                <div class="col-12 col-md-2"><noscript><button class="btn btn-outline-secondary w-100">Göster</button></noscript></div>
+                <div class="col-12 col-md-2"><button type="submit" class="btn btn-outline-secondary w-100">Göster</button></div>
             </form>
 
             <?php if ($calendar !== null): ?>

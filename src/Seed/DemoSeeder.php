@@ -19,7 +19,6 @@ use App\Model\ModerationStatus;
 use App\Model\Notification;
 use App\Model\Payment;
 use App\Model\PaymentStatus;
-use App\Model\Photo;
 use App\Model\PriceRule;
 use App\Model\PriceRuleType;
 use App\Model\PricingRule;
@@ -43,24 +42,13 @@ use RuntimeException;
 /**
  * Örnek veri (ders kuralı: sunumda boş veriyle demo yapılmaz; AC-29: en az 10 birim, 3 oda tipi).
  * 8 ilan, 16 birim, 6 oda tipi; geçmiş, devam eden, bekleyen, iptal ve reddedilen rezervasyonlar;
- * her ilana birden çok yorum ve (GD varsa) çizilmiş ilan/oda fotoğrafları. Veriler JSON dosyalarına
- * (veya seçiliyse MySQL'e) yazılır. Tarihler bugüne göre hesaplanır. Demo parolası README'de yazılıdır.
+ * her ilana birden çok yorum. Fotoğraf üretilmez (ders kuralı: resim, ikon veya çizim dosyası hazırlanmaz);
+ * ilanlar emoji yer tutucuyla görünür, fotoğrafı ilan sahibi panelinden yükler (FR-46). Veriler JSON
+ * dosyalarına (veya seçiliyse MySQL'e) yazılır. Tarihler bugüne göre hesaplanır. Demo parolası README'de yazılıdır.
  */
 final class DemoSeeder
 {
     public const DEMO_PASSWORD = 'Demo1234!';
-
-    /** İlan başına fotoğraf sahneleri: [dış mekân, iç mekân]. Dış mekân gündüz ve akşam çizilir. */
-    private const PHOTO_SCENES = [
-        'karadeniz' => ['sehir-oteli', 'oda-cift'],
-        'uzungol' => ['gol-dag-evi', 'salon-somine'],
-        'bogaz' => ['bogaz-daire', 'salon'],
-        'sultanahmet' => ['tarihi-otel', 'oda-cift'],
-        'kaleici' => ['konak-otel', 'oda-aile'],
-        'kas' => ['deniz-villa', 'salon'],
-        'kapadokya' => ['tas-ev', 'salon-somine'],
-        'gumushane' => ['dag-oteli', 'oda-tek'],
-    ];
 
     /** @var array<string, User> */
     private array $users = [];
@@ -88,16 +76,13 @@ final class DemoSeeder
     /** @return array<string, int> */
     public function run(): array
     {
-        // Fotoğraflar işlemden önce bellekte çizilir: veri kilidi çizim süresince tutulmaz.
-        $pictures = $this->paintPictures();
         // Depodan bağımsız: JSON'da dosyalar, MySQL'de tablolar boşaltılır; yükleme tek işlemde yapılır.
         $this->c->resetStorage();
 
-        return $this->c->tx()->transactional(function () use ($pictures): array {
+        return $this->c->tx()->transactional(function (): array {
             $amenities = $this->amenities();
             $this->seedUsers();
             $properties = $this->seedProperties($amenities);
-            $photos = $this->seedPhotos($properties, $pictures);
             $this->seedPricing($properties);
             $this->seedCalendar();
             $reservations = $this->seedReservations();
@@ -110,7 +95,6 @@ final class DemoSeeder
                 'oda tipi' => count(array_unique(array_map(fn (BookableUnit $u): string => $u->roomType->value, $this->units))),
                 'rezervasyon' => $reservations,
                 'yorum' => $this->reviewCount,
-                'fotoğraf' => $photos,
             ];
         });
     }
@@ -204,77 +188,6 @@ final class DemoSeeder
         }
 
         return $properties;
-    }
-
-    /**
-     * FR-46 örnek verisi: sahneler bir kez çizilir (dış mekân gündüz/akşam ve iç mekânlar).
-     *
-     * @return array<string, string> "sahne" veya "sahne|aksam" => JPEG içeriği; GD yoksa veya kapalıysa boş
-     */
-    private function paintPictures(): array
-    {
-        if (!$this->c->settings->demoPhotos || !DemoPhotoPainter::available()) {
-            return [];
-        }
-        $painter = new DemoPhotoPainter();
-        $pictures = [];
-        foreach (DemoPhotoPainter::OUTDOOR as $scene) {
-            $pictures[$scene] = $painter->paint($scene);
-            $pictures[$scene . '|aksam'] = $painter->paint($scene, true);
-        }
-        foreach (DemoPhotoPainter::INDOOR as $scene) {
-            $pictures[$scene] = $painter->paint($scene);
-        }
-
-        return $pictures;
-    }
-
-    /**
-     * İlan başına 3 fotoğraf (gündüz, akşam, iç mekân); otel odalarına oda tipine göre birer fotoğraf.
-     *
-     * @param array<string, Property> $properties
-     * @param array<string, string> $pictures
-     */
-    private function seedPhotos(array $properties, array $pictures): int
-    {
-        if ($pictures === []) {
-            return 0;
-        }
-        $directory = $this->c->settings->uploadDir;
-        if (!is_dir($directory) && !@mkdir($directory, 0775, true) && !is_dir($directory)) {
-            throw new RuntimeException('Fotoğraf klasörü oluşturulamadı: ' . $directory);
-        }
-        $count = 0;
-        $store = function (int $propertyId, ?int $unitId, string $picture, int $order) use ($directory, $pictures, &$count): void {
-            $bytes = $pictures[$picture];
-            $fileName = bin2hex(random_bytes(16)) . '.jpg';
-            if (file_put_contents($directory . DIRECTORY_SEPARATOR . $fileName, $bytes) === false) {
-                throw new RuntimeException('Fotoğraf yazılamadı: ' . $fileName);
-            }
-            $this->c->photos()->save(new Photo(null, $propertyId, $unitId, $fileName, 'image/jpeg', strlen($bytes), $order));
-            $count++;
-        };
-        $roomScene = [
-            RoomType::TekKisilik->value => 'oda-tek',
-            RoomType::CiftKisilik->value => 'oda-cift',
-            RoomType::Aile->value => 'oda-aile',
-            RoomType::Suit->value => 'oda-suit',
-        ];
-        foreach ($properties as $key => $property) {
-            [$outdoor, $indoor] = self::PHOTO_SCENES[$key];
-            $id = (int) $property->id;
-            $store($id, null, $outdoor, 1);
-            $store($id, null, $outdoor . '|aksam', 2);
-            $store($id, null, $indoor, 3);
-            $order = 4;
-            foreach ($this->units as $unitKey => $unit) {
-                if ($this->propertyKeyOfUnit[$unitKey] === $key && $property->type === PropertyType::Otel && isset($roomScene[$unit->roomType->value])) {
-                    $store($id, (int) $unit->id, $roomScene[$unit->roomType->value], $order++);
-                }
-            }
-        }
-
-        return $count;
     }
 
     /** @param array<string, Property> $properties */

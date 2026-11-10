@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
+use App\Core\Kernel;
+use App\Core\Request;
 use App\Exception\ForbiddenException;
 use App\Exception\ValidationException;
 use App\Model\Role;
@@ -52,6 +54,24 @@ final class PhotoServiceTest extends AppTestCase
         self::assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/', $photo->fileName);
         self::assertFileExists($this->dir . '/uploads/' . $photo->fileName);
         self::assertNull($photo->unitId, 'Oda seçilmezse ilanın genel fotoğrafıdır');
+    }
+
+    /** Dosya web kökünün dışında durur; tarayıcıya ön denetleyici üzerinden, kendi türüyle sunulur (FR-09: ilan fotoğrafları). */
+    #[Group('FR-09')]
+    public function testUploadedPhotoIsServedThroughTheFrontController(): void
+    {
+        $photo = $this->photos->upload($this->ownerId, $this->propertyId, $this->file('ev.png', $this->png()));
+
+        $_SESSION = [];
+        $kernel = new Kernel($this->c);
+        $served = $kernel->handle(new Request('GET', '/foto/' . $photo->id));
+        $missing = $kernel->handle(new Request('GET', '/foto/999999'));
+        $_SESSION = [];
+
+        self::assertSame(200, $served->status);
+        self::assertSame('image/png', $served->headers['Content-Type'] ?? null);
+        self::assertSame($this->png(), $served->body, 'Yüklenen dosyanın kendisi döner');
+        self::assertSame(404, $missing->status);
     }
 
     public function testPhotoCanBelongToAUnitOfTheSameProperty(): void

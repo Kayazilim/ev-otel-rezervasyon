@@ -47,7 +47,6 @@ final class Settings
         public readonly string $smtpSecure = 'tls',
         public readonly string $smtpUser = '',
         public readonly string $smtpPassword = '',
-        public readonly bool $demoPhotos = false,
     ) {
     }
 
@@ -112,7 +111,6 @@ final class Settings
             smtpSecure: in_array($smtpStr('secure', 'tls'), ['tls', 'ssl', 'yok'], true) ? $smtpStr('secure', 'tls') : 'tls',
             smtpUser: $smtpStr('user', ''),
             smtpPassword: $smtpStr('password', ''),
-            demoPhotos: $bool('demo_photos', false),
         );
     }
 }

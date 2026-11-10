@@ -108,11 +108,12 @@ $summary = ($c->city !== '' ? $c->city : 'Tüm şehirler')
         <section class="col-12 col-lg-9">
             <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
                 <label for="sirala" class="small fw-semibold">Sırala:</label>
-                <select class="form-select form-select-sm w-auto" id="sirala" name="sirala" onchange="this.form.submit()">
+                <select class="form-select form-select-sm w-auto" id="sirala" name="sirala">
                     <option value="fiyat_artan"<?= $view->selected($c->sort, 'fiyat_artan') ?>>Fiyat (artan)</option>
                     <option value="fiyat_azalan"<?= $view->selected($c->sort, 'fiyat_azalan') ?>>Fiyat (azalan)</option>
                     <option value="puan"<?= $view->selected($c->sort, 'puan') ?>>Puan (yüksekten)</option>
                 </select>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Uygula</button>
             </div>
             <div id="sonuclar">
                 <?= $view->partial('property/_results', ['result' => $result, 'q' => $q]) ?>

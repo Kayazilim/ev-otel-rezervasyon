@@ -54,12 +54,14 @@ $selectedAmenities = is_array($old['olanak'] ?? null) ? $old['olanak'] : [];
                     <select class="form-select<?= $view->invalid($errors, 'mod') ?>" id="mod" name="mod">
                         <?php foreach ($modes as $value => $label): ?><option value="<?= e($value) ?>"<?= $view->selected($val('mod'), $value) ?>><?= e($label) ?></option><?php endforeach; ?>
                     </select>
+                    <?= $view->error($errors, 'mod') ?>
                 </div>
                 <div class="col-12 col-md-4">
                     <label for="politika" class="form-label">İptal politikası</label>
                     <select class="form-select<?= $view->invalid($errors, 'politika') ?>" id="politika" name="politika">
                         <?php foreach ($policies as $value => $label): ?><option value="<?= e($value) ?>"<?= $view->selected($val('politika'), $value) ?>><?= e($label) ?></option><?php endforeach; ?>
                     </select>
+                    <?= $view->error($errors, 'politika') ?>
                     <div class="form-text">Değişiklik yalnızca yeni rezervasyonlara uygulanır.</div>
                 </div>
                 <div class="col-12 col-md-4">
@@ -67,6 +69,7 @@ $selectedAmenities = is_array($old['olanak'] ?? null) ? $old['olanak'] : [];
                     <select class="form-select<?= $view->invalid($errors, 'durum') ?>" id="durum" name="durum">
                         <?php foreach ($statuses as $value => $label): ?><option value="<?= e($value) ?>"<?= $view->selected($val('durum'), $value) ?>><?= e($label) ?></option><?php endforeach; ?>
                     </select>
+                    <?= $view->error($errors, 'durum') ?>
                     <div class="form-text">Pasif ilan yeni rezervasyon almaz; mevcutlar değişmez.</div>
                 </div>
                 <fieldset class="col-12">
