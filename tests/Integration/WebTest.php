@@ -185,6 +185,35 @@ final class WebTest extends AppTestCase
         self::assertSame([], $unlabelled, 'Etiketsiz form alanları');
     }
 
+    /**
+     * NFR-12 (WCAG 2.1 AA, 3.2.2): seçim listesinde değer değişince form kendiliğinden gönderilmez.
+     * Klavyede ok tuşu her basışta değeri değiştirir; otomatik gönderim sayfayı her seferinde yeniden yükler.
+     * Seçim, yanındaki düğmeyle gönderilir.
+     */
+    #[Group('NFR-12')]
+    public function testSelectsDoNotSubmitOnChange(): void
+    {
+        $pages = [
+            '/ara' => ['giris' => '2026-12-10', 'cikis' => '2026-12-13', 'kisi' => '2'],
+            '/ilan/1' => [],
+        ];
+        $found = [];
+        foreach ($pages as $path => $params) {
+            $html = $this->get($path, $params)->body;
+            if (preg_match('/<select[^>]*\bonchange=/i', $html) === 1) {
+                $found[] = $path;
+            }
+        }
+        $this->loginAs('ayse@evotel.test');
+        $html = $this->get('/panel/takvim')->body;
+        self::assertStringContainsString('<select class="form-select" id="birim"', $html);
+        if (preg_match('/<select[^>]*\bonchange=/i', $html) === 1) {
+            $found[] = '/panel/takvim';
+        }
+
+        self::assertSame([], $found, 'Kendiliğinden gönderilen seçim listesi');
+    }
+
     #[Group('FR-05')]
     #[Group('NFR-03')]
     #[Group('AC-07')]

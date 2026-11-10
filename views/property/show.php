@@ -182,11 +182,14 @@ $maxBar = max(1, ...array_values($detail->ratingDistribution));
                 <p class="mb-3"><span class="fiyat"><?= $view->money($selectedUnit->basePrice) ?></span> <span class="small text-body-secondary">/ gece'den</span></p>
                 <form method="get" action="<?= e($view->url('/ilan/' . $p->id)) ?>" class="mb-3">
                     <label for="birim-sec" class="form-label">Oda / birim</label>
-                    <select id="birim-sec" name="birim" class="form-select" onchange="this.form.submit()">
+                    <div class="input-group">
+                    <select id="birim-sec" name="birim" class="form-select">
                         <?php foreach ($detail->units as $unit): ?>
                             <option value="<?= (int) $unit->id ?>"<?= $view->selected($unit->id, $selectedUnit->id) ?>><?= e($unit->name . ' · ' . $unit->roomType->label() . ' · ' . $unit->capacity . ' kişi') ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <button type="submit" class="btn btn-outline-secondary">Göster</button>
+                    </div>
                     <input type="hidden" name="giris" value="<?= e($form['giris']) ?>">
                     <input type="hidden" name="cikis" value="<?= e($form['cikis']) ?>">
                     <input type="hidden" name="kisi" value="<?= e($form['kisi']) ?>">

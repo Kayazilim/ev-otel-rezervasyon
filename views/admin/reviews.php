@@ -20,7 +20,7 @@
     <?php $r = $row['review']; ?>
     <div class="card shadow-sm mb-2"><div class="card-body">
         <div class="d-flex flex-wrap justify-content-between gap-2">
-            <div><span class="text-warning"><?= str_repeat('★', $r->rating) . str_repeat('☆', 5 - $r->rating) ?></span> · <?= e($row['author']) ?> · <?= e($row['property']) ?> · <span class="font-monospace small"><?= e($row['number']) ?></span></div>
+            <div><span class="text-warning" role="img" aria-label="<?= (int) $r->rating ?> / 5 puan"><?= str_repeat('★', $r->rating) . str_repeat('☆', 5 - $r->rating) ?></span> · <?= e($row['author']) ?> · <?= e($row['property']) ?> · <span class="font-monospace small"><?= e($row['number']) ?></span></div>
             <span class="badge text-bg-secondary align-self-start"><?= e($r->moderationStatus->label()) ?></span>
         </div>
         <p class="my-2"><?= e($r->comment) ?></p>
