@@ -82,7 +82,12 @@ final class ProfileController extends Controller
         if ($request->header('X-Requested-With') === 'fetch') {
             $this->session->close();
 
-            return $this->fragment('partials/favorite_button', ['propertyId' => (int) $id, 'isFavorite' => $isFavorite]);
+            // Yeni düğme de formun gönderildiği sayfaya dönmeyi bilir (istek adresi /favori/... olduğundan açıkça verilir).
+            return $this->fragment('partials/favorite_button', [
+                'propertyId' => (int) $id,
+                'isFavorite' => $isFavorite,
+                'currentPath' => $this->safePath($request->input('donus'), '/favoriler'),
+            ]);
         }
         $this->flash('success', $isFavorite ? 'İlan favorilerinize eklendi.' : 'İlan favorilerinizden çıkarıldı.');
 

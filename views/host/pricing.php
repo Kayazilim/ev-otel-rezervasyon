@@ -55,6 +55,7 @@ $deleteForm = function (int $id, string $action) use ($view, $property): string 
 
         <div class="card shadow-sm mb-3"><div class="card-body">
             <h2 class="h6 fw-bold">Tanımlı kurallar</h2>
+            <div class="table-responsive">
             <table class="table table-sm align-middle mb-0">
                 <thead><tr><th>Tür</th><th>Ad</th><th>Kapsam</th><th>Ayrıntı</th><th>Değer</th><th></th></tr></thead>
                 <tbody>
@@ -85,6 +86,7 @@ $deleteForm = function (int $id, string $action) use ($view, $property): string 
                 <?php if ($priceRules === [] && $pricingRules === []): ?><tr><td colspan="6" class="text-body-secondary">Kural yok; temel fiyat uygulanır.</td></tr><?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div></div>
 
         <div class="row g-3 mb-3">

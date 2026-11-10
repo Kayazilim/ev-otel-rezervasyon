@@ -125,6 +125,12 @@ final class Request
         return is_string($address) && in_array($address, ['127.0.0.1', '::1', '::ffff:127.0.0.1'], true);
     }
 
+    /** Girdide bozuk kodlanmış (UTF-8 olmayan) metin var mı? Böyle bir metin JSON veri dosyasına yazılamaz. */
+    public function hasInvalidEncoding(): bool
+    {
+        return !mb_check_encoding($this->query, 'UTF-8') || !mb_check_encoding($this->post, 'UTF-8');
+    }
+
     /** Adres çubuğundaki yol + sorgu (giriş sonrası geri dönmek için). */
     public function fullPath(): string
     {

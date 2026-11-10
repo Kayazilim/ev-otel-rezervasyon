@@ -8,6 +8,7 @@ use App\Core\Container;
 use App\Core\Kernel;
 use App\Core\Request;
 use App\Exception\ValidationException;
+use App\Model\Complaint;
 use App\Model\ComplaintStatus;
 use App\Model\Notification;
 use App\Model\Role;
@@ -25,6 +26,15 @@ final class ComplaintFlowTest extends AppTestCase
     {
         $_SESSION = [];
         parent::tearDown();
+    }
+
+    /** Depodaki güncel şikâyet kaydı. */
+    private function stored(int $id): Complaint
+    {
+        $complaint = $this->c->complaints()->findById($id);
+        self::assertNotNull($complaint);
+
+        return $complaint;
     }
 
     /** @return list<string> */
@@ -118,5 +128,46 @@ final class ComplaintFlowTest extends AppTestCase
         self::assertStringContainsString('Şikâyetler kutusuna düştü', $page->body);
         self::assertStringContainsString('Resepsiyon geç saatte yanıt vermedi.', $page->body);
         self::assertStringContainsString('rozet-notr', $page->body, 'Yeni şikâyet durumu rozetle gösterilir');
+    }
+
+    /** Yönetici formundaki hata "beklenmeyen hata" sayfasına düşmez: anlaşılır mesajla aynı sayfaya dönülür, kayıt değişmez. */
+    #[Group('NFR-06')]
+    public function testAdminFormErrorsAreShownAsMessagesAndChangeNothing(): void
+    {
+        $_SESSION = [];
+        (new Kernel($this->c))->handle(new Request('GET', '/')); // örnek veri
+        $sender = $this->c->users()->findByEmail('ali@evotel.test');
+        $admin = $this->c->users()->findByEmail('yonetici@evotel.test');
+        self::assertNotNull($sender);
+        self::assertNotNull($admin);
+        $id = (int) $this->c->complaintService()->create((int) $sender->id, 1, '', 'Oda temiz değildi, havlular değiştirilmemişti.')->id;
+        $_SESSION['user_id'] = $admin->id;
+        $_SESSION['_last_activity'] = $this->clock->now()->getTimestamp();
+        $kernel = new Kernel(new Container($this->settings(), $this->clock));
+        $inbox = $kernel->handle(new Request('GET', '/yonetim/sikayetler'));
+        self::assertSame(200, $inbox->status);
+        self::assertStringContainsString('name="not" maxlength="2000"', $inbox->body, 'Tarayıcı da uzun notu baştan engeller');
+        $send = fn (string $status, string $note) => $kernel->handle(new Request('POST', '/yonetim/sikayet/' . $id, [], [
+            '_csrf' => $_SESSION['_csrf'] ?? '',
+            'durum' => $status,
+            'not' => $note,
+        ]));
+
+        $tooLong = $send('inceleniyor', str_repeat('a', 2001));
+        self::assertSame(303, $tooLong->status, 'Uzun not 500 hatasına yol açmaz');
+        self::assertSame('/yonetim/sikayetler', $tooLong->headers['Location']);
+        self::assertStringContainsString('Yönetici notu en çok 2000 karakter olabilir.', $kernel->handle(new Request('GET', '/yonetim/sikayetler'))->body);
+        self::assertSame(ComplaintStatus::Yeni, $this->stored($id)->status);
+
+        $unknown = $send('yok', 'Not');
+        self::assertSame(303, $unknown->status);
+        self::assertStringContainsString('Geçersiz durum.', $kernel->handle(new Request('GET', '/yonetim/sikayetler'))->body);
+        self::assertSame(ComplaintStatus::Yeni, $this->stored($id)->status, 'Bilinmeyen durum sessizce "İnceleniyor" yapılmaz');
+        self::assertNull($this->stored($id)->adminNote);
+
+        self::assertSame(303, $send('cozuldu', 'İlan sahibiyle görüşüldü.')->status);
+        self::assertStringContainsString('Şikâyet güncellendi.', $kernel->handle(new Request('GET', '/yonetim/sikayetler'))->body);
+        self::assertSame(ComplaintStatus::Cozuldu, $this->stored($id)->status);
+        self::assertSame('İlan sahibiyle görüşüldü.', $this->stored($id)->adminNote);
     }
 }

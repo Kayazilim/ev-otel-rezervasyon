@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Core;
 
 use App\Exception\BusyException;
+use App\Exception\ConflictException;
 use App\Exception\ForbiddenException;
+use App\Exception\InvalidTransitionException;
 use App\Exception\MailDeliveryException;
 use App\Exception\NotFoundException;
 use App\Exception\StorageUnavailableException;
+use App\Exception\ValidationException;
 use App\Model\Role;
 use App\Seed\DemoSeeder;
 use Throwable;
@@ -24,6 +27,9 @@ final class Kernel
     /** İstek /api/ ile başlıyorsa yanıtlar (hatalar dahil) JSON'dur. */
     private bool $api = false;
 
+    /** İstek /parca/ ile başlıyorsa yanıt bir sayfa bölümüdür (kısmi yenileme); hata da tam sayfa değil, kısa bir bölüm olarak döner. */
+    private bool $fragment = false;
+
     public function __construct(private readonly Container $container)
     {
     }
@@ -35,6 +41,7 @@ final class Kernel
         $auth = $this->container->auth();
         $logger = $this->container->logger();
         $this->api = str_starts_with($request->path, '/api/');
+        $this->fragment = str_starts_with($request->path, '/parca/');
 
         try {
             $this->ensureDemoData();
@@ -46,10 +53,18 @@ final class Kernel
                 $auth->logout();
                 $session->start($request->isHttps());
                 $session->flash('warning', 'Oturumunuz uzun süre işlem yapılmadığı için kapatıldı. Lütfen tekrar giriş yapın.');
+                if ($this->isBackground($request)) {
+                    // Arka plan isteğine giriş sayfası gönderilmez; uyarı, kullanıcının açacağı ilk sayfada gösterilir.
+                    return $this->secure($this->loginRequired());
+                }
 
                 return $this->secure(Response::redirect($view->url('/giris')));
             }
-            $session->touch($now);
+            // Kendiliğinden yenilenen sayfa bölümleri (/parca/...) kullanıcı işlemi sayılmaz;
+            // yoksa açık bırakılan bir sekme oturumu canlı tutar ve zaman aşımı hiç çalışmaz.
+            if (!$this->fragment) {
+                $session->touch($now);
+            }
 
             $view->share('csrfToken', $this->container->csrf()->token());
             $view->share('currentUser', $auth->user());
@@ -58,6 +73,11 @@ final class Kernel
             // FR-04: e-posta modu ve (yalnızca bu bilgisayardan) simüle posta kutusu bağlantısı
             $view->share('mailMode', $this->container->settings->mailDriver);
             $view->share('mailInbox', $this->container->mailbox()->enabled() && $request->isFromLoopback());
+
+            // Bozuk kodlanmış (UTF-8 olmayan) girdi veri dosyasına yazılamaz; denetleyiciye ulaşmadan reddedilir.
+            if ($request->hasInvalidEncoding()) {
+                return $this->secure($this->error($view, 400, 'Geçersiz istek', 'Gönderilen bilgilerde okunamayan karakterler var. Lütfen alanları yeniden yazıp tekrar deneyin.'));
+            }
 
             $match = $this->container->router()->match($request->method, $request->path);
             if ($match === null) {
@@ -75,11 +95,8 @@ final class Kernel
             // Rota bazlı yetki (FR-05): arayüzde gizli olsa bile doğrudan istek de reddedilir.
             $access = $match['access'];
             if ($access !== null && !$auth->check()) {
-                if ($this->api) {
-                    return $this->secure(Response::json(['basarili' => false, 'hata' => 'Oturum gerekli.'], 401));
-                }
-                if (str_starts_with($request->path, '/parca/')) {
-                    return $this->secure(Response::html('Oturum gerekli.', 401));
+                if ($this->isBackground($request)) {
+                    return $this->secure($this->loginRequired());
                 }
                 $session->flash('info', 'Bu sayfa için giriş yapmalısınız.');
 
@@ -99,6 +116,12 @@ final class Kernel
             return $this->secure($this->error($view, 404, 'Bulunamadı', $e->getMessage()));
         } catch (ForbiddenException $e) {
             return $this->secure($this->error($view, 403, 'Yetkiniz yok', $e->getMessage()));
+        } catch (ValidationException $e) {
+            // Denetleyicide karşılanmamış doğrulama hatası "beklenmeyen hata" değildir; mesajı kullanıcıya gösterilir.
+            return $this->secure($this->error($view, 422, 'Geçersiz istek', $e->getMessage()));
+        } catch (ConflictException | InvalidTransitionException $e) {
+            // Aynı anda yapılan iki işlemden geç kalanı: tarih az önce doldu ya da durum az önce değişti.
+            return $this->secure($this->error($view, 409, 'İşlem tamamlanamadı', $e->getMessage()));
         } catch (BusyException $e) {
             return $this->secure($this->error($view, 503, 'Yoğunluk', $e->getMessage()));
         } catch (MailDeliveryException $e) {
@@ -118,11 +141,29 @@ final class Kernel
         }
     }
 
+    /** Arka plan isteği: sayfa bölümü, JSON uç noktası veya fetch ile gönderilen form. Yanıtı tarayıcı değil betik okur. */
+    private function isBackground(Request $request): bool
+    {
+        return $this->api || $this->fragment || $request->header('X-Requested-With') === 'fetch';
+    }
+
+    /** Oturumu olmayan arka plan isteği giriş sayfasına yönlendirilmez (sayfanın içine giriş formu basılmasın); 401 alır. */
+    private function loginRequired(): Response
+    {
+        return $this->api
+            ? Response::json(['basarili' => false, 'hata' => 'Oturum gerekli.'], 401)
+            : Response::html('Oturum gerekli.', 401);
+    }
+
     private function error(View $view, int $status, string $title, string $message): Response
     {
         if ($this->api) {
             // JSON uç noktaları hatayı da JSON olarak döndürür
             return Response::json(['basarili' => false, 'hata' => $message], $status);
+        }
+        if ($this->fragment) {
+            // Sayfa bölümü hatayı da bölüm olarak döndürür; tam hata sayfası bölümün içine basılmaz.
+            return Response::html($view->render('errors/fragment', ['message' => $message], null), $status);
         }
         $session = $this->container->session();
         $user = $this->container->auth()->user();

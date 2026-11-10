@@ -12,7 +12,8 @@ use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Ön denetleyici üzerinden: CSRF (NFR-14), rol bazlı yetki (FR-05, NFR-03), XSS kaçışı,
- * oturum zaman aşımı (bonus), kısmi yenileme parçası ve CSV dışa aktarma.
+ * oturum zaman aşımı (bonus), kısmi yenileme parçası, arka plan isteklerinin (sayfa bölümü,
+ * JSON uç noktası, fetch ile gönderilen form) oturum ve hata yanıtları, CSV dışa aktarma.
  * Veri klasörü boş olduğundan ilk istekte örnek veri yüklenir.
  */
 final class WebTest extends AppTestCase
@@ -47,6 +48,18 @@ final class WebTest extends AppTestCase
         }
 
         return $this->kernel->handle(new Request('POST', $path, [], $post));
+    }
+
+    /**
+     * Sayfa yenilenmeden, fetch ile gönderilen form (favori düğmesi): yanıtı tarayıcı değil betik okur.
+     *
+     * @param array<string, mixed> $post
+     */
+    private function fetchPost(string $path, array $post): Response
+    {
+        $post['_csrf'] = $_SESSION['_csrf'] ?? '';
+
+        return $this->kernel->handle(new Request('POST', $path, [], $post, [], ['HTTP_X_REQUESTED_WITH' => 'fetch']));
     }
 
     private function loginAs(string $email): void
@@ -252,6 +265,136 @@ final class WebTest extends AppTestCase
 
         self::assertSame(303, $response->status);
         self::assertSame('/giris', $response->headers['Location']);
+    }
+
+    /**
+     * Bonus (oturum zaman aşımı): kendiliğinden yenilenen sayfa bölümü kullanıcı işlemi sayılmaz.
+     * Sayılsaydı açık bırakılan sekme birkaç saniyede bir istek gönderdiği için oturum hiç kapanmazdı.
+     */
+    #[Group('NFR-15')]
+    public function testPolledFragmentDoesNotKeepTheSessionAlive(): void
+    {
+        $this->loginAs('ali@evotel.test');
+        $lastAction = $this->clock->now()->getTimestamp();
+
+        // Sekme açık kalır: bildirim sayacı kendiliğinden yenilenir, kullanıcı hiçbir şey yapmaz.
+        foreach ([10, 20, 30] as $minute) {
+            $this->clock->advance('+10 minutes');
+            self::assertSame(200, $this->get('/parca/bildirim-sayaci')->status, $minute . '. dakikada oturum henüz açık');
+            self::assertSame($lastAction, $_SESSION['_last_activity'], 'Sayfa bölümü isteği süreyi uzatmaz');
+        }
+        $this->clock->advance('+1 minute');
+        self::assertSame(401, $this->get('/parca/bildirim-sayaci')->status, '31. dakikada oturum kapanır');
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+
+        // Kullanıcının kendi açtığı sayfa ise süreyi yeniler.
+        $this->loginAs('ali@evotel.test');
+        $this->clock->advance('+20 minutes');
+        self::assertSame(200, $this->get('/rezervasyonlarim')->status);
+        self::assertSame($this->clock->now()->getTimestamp(), $_SESSION['_last_activity']);
+    }
+
+    /**
+     * Zaman aşımına uğrayan oturumda arka plan isteği giriş sayfasına yönlendirilmez (yanıt bölümün içine
+     * basılacağı için); 401 alır. Uyarı, kullanıcının açacağı ilk sayfada gösterilir.
+     */
+    #[Group('NFR-15')]
+    public function testTimedOutBackgroundRequestGets401InsteadOfTheLoginPage(): void
+    {
+        $this->loginAs('ali@evotel.test');
+        $_SESSION['_last_activity'] = $this->clock->now()->modify('-31 minutes')->getTimestamp();
+        $fragment = $this->get('/parca/bildirim-sayaci');
+        self::assertSame(401, $fragment->status);
+        self::assertSame('Oturum gerekli.', $fragment->body, 'Bölümün içine giriş sayfası basılmaz');
+        self::assertArrayNotHasKey('Location', $fragment->headers);
+        self::assertArrayNotHasKey('user_id', $_SESSION, 'Oturum yine de kapatılır');
+        self::assertStringContainsString('Oturumunuz uzun süre işlem yapılmadığı için kapatıldı', $this->get('/giris')->body);
+
+        $this->loginAs('ali@evotel.test');
+        $_SESSION['_last_activity'] = $this->clock->now()->modify('-31 minutes')->getTimestamp();
+        $api = $this->get('/api/musaitlik', ['birim' => '1', 'giris' => '2027-05-19', 'cikis' => '2027-05-22', 'kisi' => '1']);
+        self::assertSame(401, $api->status);
+        self::assertSame('Oturum gerekli.', $this->json($api)['hata'], 'JSON uç noktası hatayı JSON olarak verir');
+
+        $this->loginAs('ali@evotel.test');
+        $_SESSION['_last_activity'] = $this->clock->now()->modify('-31 minutes')->getTimestamp();
+        $fetch = $this->fetchPost('/favori/1', ['donus' => '/ilan/1']);
+        self::assertSame(401, $fetch->status);
+        self::assertArrayNotHasKey('Location', $fetch->headers);
+    }
+
+    /** Oturumu olmayan arka plan isteği de 401 alır; normal sayfa ve form istekleri girişe yönlendirilmeye devam eder. */
+    #[Group('FR-05')]
+    #[Group('NFR-03')]
+    public function testGuestBackgroundRequestGets401InsteadOfARedirect(): void
+    {
+        $fragment = $this->get('/parca/bildirim-sayaci');
+        self::assertSame(401, $fragment->status);
+        self::assertSame('Oturum gerekli.', $fragment->body);
+
+        $viaFetch = $this->fetchPost('/favori/1', ['donus' => '/ilan/1']);
+        self::assertSame(401, $viaFetch->status);
+        self::assertArrayNotHasKey('Location', $viaFetch->headers);
+
+        $viaForm = $this->post('/favori/1', ['donus' => '/ilan/1']);
+        self::assertSame(303, $viaForm->status);
+        self::assertStringStartsWith('/giris', $viaForm->headers['Location']);
+    }
+
+    /** Bonus: favori formu sayfa yenilenmeden gönderilir; yanıt yalnızca düğmenin yeni HTML'idir. */
+    #[Group('FR-19')]
+    public function testFavoriteIsToggledWithoutPageReload(): void
+    {
+        $this->loginAs('ali@evotel.test');
+        $ali = $this->c->users()->findByEmail('ali@evotel.test');
+        self::assertNotNull($ali);
+        $wasFavorite = in_array(1, $this->c->favoriteService()->propertyIds((int) $ali->id), true);
+
+        $response = $this->fetchPost('/favori/1', ['donus' => '/ilan/1']);
+
+        self::assertSame(200, $response->status);
+        self::assertStringNotContainsString('<html', $response->body, 'Yanıt tam sayfa değil, yalnızca düğmedir');
+        self::assertStringContainsString('data-favori', $response->body);
+        self::assertStringContainsString($wasFavorite ? '♡ Favori' : '♥ Favoride', $response->body);
+        self::assertStringContainsString('name="donus" value="/ilan/1"', $response->body, 'Yeni düğme de aynı sayfaya döner');
+        self::assertSame(!$wasFavorite, in_array(1, $this->c->favoriteService()->propertyIds((int) $ali->id), true));
+    }
+
+    /** Sayfa bölümü hatayı da bölüm olarak döndürür; tam hata sayfası (menü, alt bilgi) bölümün içine basılmaz. */
+    #[Group('NFR-06')]
+    public function testFragmentErrorsAreShortFragmentsNotFullPages(): void
+    {
+        $missing = $this->get('/parca/takvim', ['birim' => '999999', 'ay' => '2026-11']);
+        self::assertSame(404, $missing->status);
+        self::assertStringContainsString('Oda bulunamadı.', $missing->body);
+        self::assertStringNotContainsString('<html', $missing->body);
+
+        $this->loginAs('ali@evotel.test');
+        $forbidden = $this->get('/parca/panel-rezervasyonlar');
+        self::assertSame(403, $forbidden->status, 'Parça da yetki denetiminden geçer');
+        self::assertStringContainsString('Bu sayfaya erişim yetkiniz yok.', $forbidden->body);
+        self::assertStringNotContainsString('<html', $forbidden->body);
+    }
+
+    /** Bozuk kodlanmış (UTF-8 olmayan) girdi JSON dosyasına yazılamaz; "beklenmeyen hata" yerine anlaşılır mesajla reddedilir. */
+    #[Group('NFR-06')]
+    public function testInputWithInvalidEncodingIsRejectedWithAClearMessage(): void
+    {
+        $this->get('/giris');
+        $userCount = count($this->c->users()->all());
+
+        $response = $this->post('/kayit', [
+            'ad' => "Ay\xFFe",
+            'soyad' => 'Test',
+            'eposta' => 'bozuk@example.com',
+            'parola' => 'Parola1234',
+            'rol' => 'musteri',
+        ]);
+
+        self::assertSame(400, $response->status);
+        self::assertStringContainsString('okunamayan karakterler', $response->body);
+        self::assertCount($userCount, $this->c->users()->all(), 'Kayıt oluşturulmaz');
+        self::assertSame(400, $this->get('/ara', ['konum' => "\xC3\x28"])->status);
     }
 
     /** @return array<string, mixed> */
