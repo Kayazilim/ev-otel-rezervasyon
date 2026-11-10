@@ -67,7 +67,7 @@ Tüm demo hesaplarının parolası: `Demo1234!` (yalnızca yerel demo verisi, `s
 
 Örnek veri: 15 kullanıcı, 8 ilan, 16 oda/birim, 6 oda tipi, 54 rezervasyon (tamamlanan, devam eden, bekleyen, iptal, ret, süresi dolan), 43 yorum (her ilanda 4–7, yalnızca tamamlanmış konaklamalardan). Ayrıca takvim istisnaları, sezon/hafta sonu/uzun konaklama kuralları, KDV ve temizlik ücreti var.
 
-**Fotoğraflar:** ders kuralı gereği resim, ikon veya çizim dosyası hazırlanmaz; örnek veride ilanlar emoji yer tutucuyla görünür. Gerçek fotoğraflar ilan sahibi panelinden (İlanlarım → Fotoğraflar) yüklenir (FR-46). `config/app.php` içindeki `demo_photos` ayarı kapalıdır ve kapalı kalmalıdır.
+**Fotoğraflar:** ders kuralı gereği resim, ikon veya çizim dosyası hazırlanmaz; örnek veride ilanlar emoji yer tutucuyla görünür. Gerçek fotoğraflar ilan sahibi panelinden (İlanlarım → Fotoğraflar) yüklenir (FR-46). Örnek veri fotoğraf üretmez; çizim üreten kod depoda yoktur.
 
 ### Şikâyet akışı
 
@@ -126,7 +126,7 @@ composer test
 
 | Komut | Ne yapar |
 | --- | --- |
-| `composer test` | Tüm PHPUnit testleri, JSON deposunda (218 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
+| `composer test` | Tüm PHPUnit testleri, JSON deposunda (225 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
 | `composer test:mysql` | Aynı testler MySQL'de (`evotel_test` veritabanı; `EVOTEL_TEST_DB_HOST/PORT/USER/PASSWORD`). Testler her seferinde tabloları boşalttığı için adı `_test` ile bitmeyen veritabanında çalışmaz. |
 | `composer test:hizli` | Eşzamanlılık testleri hariç |
 | `composer kapsam` | Satır kapsamı (Xdebug gerekir; HTML rapor `coverage/`) |
@@ -134,7 +134,7 @@ composer test
 | `composer analiz` | PHPStan statik analiz (seviye 6; `src`, `bin`, `config`, `tests`) |
 | `composer stil` / `composer stil:duzelt` | PSR-12 kod stili denetimi / otomatik düzeltme |
 
-Son çalıştırma (08.11.2026): JSON deposunda 218 test / 1745 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 218 test / 1799 doğrulama, hepsi geçti. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,1 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
+Son çalıştırma (10.11.2026): JSON deposunda 225 test / 1656 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 225 test / 1710 doğrulama, hepsi geçti. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,1 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
 
 Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group FR-18` (her test doğruladığı gereksinim kodunu `#[Group]` olarak taşır).
 
@@ -151,7 +151,7 @@ Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group F
 | **Eşzamanlılık:** transaction ve satır kilidi | MySQL: `BEGIN … SELECT … FOR UPDATE … COMMIT`, kilit bekleme 5 sn, 2 yeniden deneme; JSON: dosya kilidi; koşullu güncelleme + `UNIQUE(birim, gece)`; 50 süreçli testler |
 | **Güvenlik:** hazırlıklı ifadeler, `password_hash`, XSS kaçışı, CSRF, `session_regenerate_id`, her işlemde yetki | `MySqlDatabase` (`ATTR_EMULATE_PREPARES=false`), `AuthService`, `e()`, `Kernel` (CSRF), `Auth::login` ve parola değişiminde oturum kimliği yenileme, rota yetkisi + servislerde sahiplik denetimi |
 | **Etkileşim:** JSON döndüren AJAX ucu | `GET /api/musaitlik` (`ApiController`) + 4 kendiliğinden yenilenen bölüm (`/parca/...`) |
-| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (218 test), [docs/test-izlenebilirlik.md](docs/test-izlenebilirlik.md) |
+| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (225 test), [docs/test-izlenebilirlik.md](docs/test-izlenebilirlik.md) |
 | **Kod kalitesi:** PHPStan, hatasız çalışma, anlaşılır hata mesajları | `composer analiz` (seviye 6, testler dahil), alan bazlı doğrulama mesajları, JSON uçta JSON hata, depo erişilemezse 503 ve açıklama |
 | **Süreç:** GitHub deposu, anlamlı commit geçmişi, Projects backlog, README | Bu depo; her SRS gereksinimi bir issue, 3 aşama milestone'u, [GitHub Projects panosu](https://github.com/users/Kayazilim/projects/1) (Yapılacak / Yapılıyor / Bitti, SRS önceliği, aşama görünümleri; issue kapanınca veya PR birleşince kart kendiliğinden Bitti'ye geçer), PR ile birleştirme |
 
@@ -169,7 +169,7 @@ Proje kartı ve ortak şartlar:
 | Kart: tarih bazlı arama, aylık takvim, gecelik döküm, yaşam döngüsü, doluluk ve gelir raporu, resim yükleme | Hepsi uygulandı |
 | Yapay zekâ kullanım günlüğü | [docs/ai-gunlugu.md](docs/ai-gunlugu.md) |
 
-**Bonuslar:** PSR-12 ve PHPStan, ek tasarım desenleri (Strategy ×2, State), şifre değiştirme, oturum zaman aşımı (30 dk), sayfalama, CSV dışa aktarma, yazarken sonuç veren canlı arama, sayfa yenilenmeden gönderilen formlar (favori, fiyat önizleme), transaction + satır kilidi, günlük yedek ve geri yükleme.
+**Bonuslar:** PSR-12 ve PHPStan, ek tasarım desenleri (Strategy ×2, State), şifre değiştirme, oturum zaman aşımı (30 dk; kendiliğinden yenilenen bölümler etkinlik sayılmaz), sayfalama, CSV dışa aktarma, yazarken sonuç veren canlı arama, sayfa yenilenmeden gönderilen formlar (favori, fiyat önizleme), transaction + satır kilidi, günlük yedek ve geri yükleme.
 
 ## Klasör yapısı
 

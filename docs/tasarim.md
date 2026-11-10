@@ -24,12 +24,13 @@ ev-otel-rezervasyon/
 ├── public/              index.php (ön denetleyici), assets/app.css
 ├── config/              app.php (tüm sayısal ayarlar), routes.php (adres → controller + yetki)
 ├── bin/                 seed.php (örnek veri), gorev.php (zamanlanmış görev + günlük yedek),
-│                        migrate.php (MySQL şeması), yedek.php (NFR-09), izlenebilirlik.php
+│                        migrate.php (MySQL şeması), yedek.php (NFR-09), izlenebilirlik.php,
+│                        eposta-dene.php (SMTP ayarını dener)
 ├── src/
 │   ├── Router.php
 │   ├── Core/            Kernel, Container, Request, Response, Session, Csrf, Auth, View
 │   ├── Controller/      Home, Auth, Property, Reservation, Review, Profile,
-│   │                    Complaint, Host, Admin, Api (JSON uç noktası)
+│   │                    Complaint, Host, Admin, Api (JSON uç noktası), Mailbox (geliştirme posta kutusu)
 │   ├── Service/         BookingConflict, Availability, Reservation, ReservationStateMachine,
 │   │   │                Pricing, PriceRule, Refund, Payment, Property, Auth, User,
 │   │   │                Favorite, Review, Notification, Complaint, Report, Photo,
@@ -42,7 +43,7 @@ ev-otel-rezervasyon/
 │   │   └── Mail/        MailerInterface; FileMailer + FileMailbox (simüle), SmtpMailer (isteğe bağlı gerçek gönderim)
 │   ├── Repository/
 │   │   ├── *RepositoryInterface.php, TransactionManagerInterface.php
-│   │   ├── Json/        (Aşama 2) JsonDatabase + 17 depo sınıfı + JsonDataSnapshot
+│   │   ├── Json/        (Aşama 2) JsonDatabase, JsonSchema, JsonTransactionManager + 17 depo sınıfı + JsonDataSnapshot
 │   │   └── MySql/       (Aşama 3) MySqlDatabase (PDO), Migrator, 17 depo sınıfı, MySqlDataSnapshot
 │   ├── Model/           User, Property, BookableUnit, Photo, Amenity, CalendarEntry,
 │   │                    Reservation, ReservationNight, ReservationCharge, PriceRule,
@@ -50,7 +51,7 @@ ev-otel-rezervasyon/
 │   │                    Complaint, AuditLog, PasswordResetToken, LoginAttempt + enum'lar
 │   ├── Support/         DateRange, Money, Decimal, Clock, Logger, Paginator
 │   ├── Exception/
-│   └── Seed/            DemoSeeder, DemoPhotoPainter (örnek veri fotoğraflarını GD ile çizer)
+│   └── Seed/            DemoSeeder (örnek veri; fotoğraf üretmez)
 ├── views/
 ├── storage/             data/ (JSON tablolar), uploads/, logs/, mail/, backups/ (son 7 yedek)
 ├── database/            migrations/ (001–004 .sql, 3NF şema), sorgular/ (JOIN'li rapor sorgusu)
@@ -899,9 +900,10 @@ Aşama 3'te aynı arayüzler PDO ile yazıldı: `beginTransaction()`, `SELECT ..
 | Rapor dönemi (BR-30) | Başlangıç ve bitiş günü dahildir; aktif birim = durumu aktif ve ilanı aktif/pasif olan birim. | BR-30'da dönem sınırı ve "aktif birim" tanımlı değildi. |
 | Parola sıfırlama e-postası | Varsayılan: e-posta servisi olmadığı için ileti `storage/mail/` klasörüne yazılır ve geliştirme ortamında `/posta-kutusu` sayfasında görünür (yalnızca yerel istek; `EVOTEL_POSTA_KUTUSU=0` ile kapanır; `Cache-Control: no-store`). İsteğe bağlı: `config/yerel.php` ile gerçek gönderim (`SmtpMailer`: STARTTLS veya TLS, AUTH PLAIN/LOGIN, UTF-8 konu; harici kütüphane yok). İkisi aynı `MailerInterface`'i uygular (Strategy); `AuthService` değişmez. | SRS 2.5: e-posta harici servise bağlıdır; FR-04 "yapılandırılmış doğrulama yöntemi"ne izin verir. Posta kutusunda sıfırlama jetonları bulunduğu için sayfa uzaktan açılmaz. |
 | Hesap varlığı (FR-04) | Kayıtlı olmayan adres için de aynı mesaj ve aynı yönlendirme verilir, ileti gönderilmez. Gönderim başarısız olursa "gönderildi" denmez: 503 gösterilir, olay günlüğe yazılır (`eposta_gonderilemedi`). | OWASP parola sıfırlama önerisi: hesabın var olup olmadığı yanıttan anlaşılmamalı. Sınırlama: SMTP kipinde gönderim eşzamanlıdır; yanıt süresindeki fark hesap varlığını sezdirebilir. Gerçek kullanımda gönderim kuyruğa alınmalıdır. |
-| Şikâyet akışı (FR-27) | Şikâyet "Yeni" durumuyla Yönetim → Şikâyetler kutusuna düşer ve aktif yöneticilere bildirim gider. Yönetici durumu veya notu güncelleyince şikâyet sahibine bildirim gider; kullanıcı şikâyetini Şikâyetlerim (`/sikayetlerim`) sayfasından izler. Formda ilan listeden seçilir. | FR-27 ölçütü yönetici panelinde listelemeyi ister; kullanıcının şikâyetin nereye gittiğini ve sonucunu görebilmesi için bildirim ve izleme sayfası eklendi. Şikâyet ilan sahibine değil yönetime gider. |
+| Şikâyet akışı (FR-27) | Şikâyet "Yeni" durumuyla Yönetim → Şikâyetler kutusuna düşer ve aktif yöneticilere bildirim gider. Yönetici durumu veya notu güncelleyince şikâyet sahibine bildirim gider; kullanıcı şikâyetini Şikâyetlerim (`/sikayetlerim`) sayfasından izler. Formda ilan listeden seçilir. Yönetici notu en çok 2000 karakterdir; listede olmayan bir durum değeri reddedilir ("Geçersiz durum."), kayıt değişmez. | FR-27 ölçütü yönetici panelinde listelemeyi ister; kullanıcının şikâyetin nereye gittiğini ve sonucunu görebilmesi için bildirim ve izleme sayfası eklendi. Şikâyet ilan sahibine değil yönetime gider. |
 | Arayüz teması | Resmi ve minimalist tema: kırık beyaz zemin, ince kenarlıklar, tek vurgu rengi (koyu yeşil), başlıklarda serif (Source Serif 4), metinde Inter. Değerler Lovable'da hazırlanan tasarım prototipinden alınıp Bootstrap 5 değişkenleriyle uygulandı (`public/assets/app.css`). | Ders kuralı: framework yasak, arayüz HTML/CSS/Bootstrap; Lovable'ın ürettiği React kodu kullanılmaz, yalnızca tasarım kaynağıdır. |
-| Örnek veri fotoğrafları (FR-46) | Örnek veride fotoğraf yoktur; ilanlar emoji yer tutucuyla görünür, gerçek fotoğraflar ilan sahibi panelinden yüklenir. GD ile çizim üreten `DemoPhotoPainter` (`demo_photos` ayarı) kapalıdır. | Ders kuralı: "Resim, ikon veya çizim dosyası hazırlanmaz." Çalışma zamanında üretilen çizimler de bu kurala aykırı sayıldığı için 09.11.2026'da kapatıldı. |
+| Örnek veri fotoğrafları (FR-46) | Örnek veride fotoğraf yoktur; ilanlar emoji yer tutucuyla görünür, gerçek fotoğraflar ilan sahibi panelinden yüklenir. Çizim üreten kod depoda yoktur. | Ders kuralı: "Resim, ikon veya çizim dosyası hazırlanmaz." Çalışma zamanında GD ile üretilen çizimler de bu kurala aykırı sayıldığı için 09.11.2026'da kapatıldı; çizim kodu (`DemoPhotoPainter`) ve `demo_photos` ayarı 10.11.2026'da depodan silindi. |
+| Erişilebilirlik (NFR-12) | Form alanlarının hepsi etiketlidir. İkincil metin rengi `#5f6672`'dir (kullanılan bütün zeminlerde en az 4,5:1). Klavye odağı her öğede 2 px koyu yeşil çerçeveyle görünür. Seçim listeleri değer değişince formu kendiliğinden göndermez; yanındaki "Göster" / "Uygula" düğmesiyle gönderilir. Yalnızca yıldızla gösterilen puanın metin karşılığı (`aria-label`) vardır. | WCAG 2.1 AA: 1.4.3 kontrast, 2.4.7 görünür odak, 3.2.2 girdide bağlam değişmez (klavyede ok tuşu her basışta değeri değiştirir; otomatik gönderim sayfayı her seferinde yeniler). 10.11.2026'da 26 sayfada (ziyaretçi, müşteri, ilan sahibi, yönetici) kontrast tarayıcıda ölçüldü. |
 | Profil alanları (SRS 11.5 açık karar) | Yalnızca ad, soyad ve parola değiştirilebilir; e-posta ve rol değiştirilemez. | SRS 11.5'teki öneri uygulandı. |
 | Yorum denetimi durumları | `yayinda`, `incelemede`, `gizlendi`. | ER'de değerler belirtilmemişti. |
 
@@ -914,7 +916,13 @@ Aşama 3'te aynı arayüzler PDO ile yazıldı: `beginTransaction()`, `SELECT ..
 | Rezervasyon durumu ve kalan bekletme süresi | `/parca/rezervasyon/{no}` | 5 sn |
 | Üst menüdeki okunmamış bildirim sayısı | `/parca/bildirim-sayaci` | 5 sn |
 
-Her parça yalnızca HTML parçası üretir, oturumu okuduktan hemen sonra `session_write_close()` çağırır ve rota yetkisinden geçer.
+Her parça yalnızca HTML parçası üretir, oturumu okuduktan hemen sonra `session_write_close()` çağırır ve rota yetkisinden geçer. Sayfadaki betik ders kalıbındaki gibidir: `fetch` ile parçayı alır, `innerHTML` ile yerine koyar, `setInterval` ile yineler.
+
+Oturum zaman aşımı ile ilişkisi (`src/Core/Kernel.php`):
+
+- Kendiliğinden yenileme istekleri kullanıcı işlemi sayılmaz: `/parca/` istekleri son işlem zamanını ilerletmez. Böylece açık bırakılan bir sayfa 30 dakikalık oturum zaman aşımını erteleyemez.
+- Giriş gerektiren bir parça ya da `fetch` isteği, oturum yoksa veya süresi dolduysa giriş sayfasına yönlendirilmez (giriş formu bölümün içine basılmasın); `401 Oturum gerekli.` alır. Her oturumlu sayfada çalışan bildirim sayacı betiği `401` görünce giriş sayfasına gider; uyarı mesajı orada gösterilir.
+- Parça isteğindeki diğer hatalar (`400`, `403`, `404` vb.) tam hata sayfası yerine tek satırlık uyarı parçası olarak döner (`views/errors/fragment.php`).
 
 ### 12.4 Testler (SRS 4.8 / 4.10 / 4.11 eşlemesi)
 
@@ -927,7 +935,7 @@ Her parça yalnızca HTML parçası üretir, oturumu okuduktan hemen sonra `sess
 | T-12, T-13 | `tests/Unit/Service/PricingServiceTest.php` |
 | T-14 | `tests/Unit/Service/RefundServiceTest.php` |
 | T-15 | `tests/Integration/ReportServiceTest.php` |
-| Güvenlik (CSRF, rol, XSS, oturum zaman aşımı) | `tests/Integration/WebTest.php`, `tests/Integration/AuthServiceTest.php`, `tests/Integration/PhotoServiceTest.php` |
+| Güvenlik (CSRF, rol, XSS, oturum zaman aşımı, arka plan isteklerinde 401, bozuk kodlanmış girdi) | `tests/Integration/WebTest.php`, `tests/Integration/AuthServiceTest.php`, `tests/Integration/PhotoServiceTest.php` |
 | JSON API, çıkış, form etiketleri (NFR-12) | `tests/Integration/WebTest.php` |
 | Hata dalları (NFR-16), sahte (stub) depo ile geçersiz geçiş | `tests/Integration/ReservationServiceRulesTest.php` |
 | İlan/oda yönetimi, filtre ve sıralama, favori, moderasyon, şikâyet, bildirim | `tests/Integration/ManagementFeaturesTest.php` |
@@ -947,6 +955,7 @@ Tüm eşleme: [test-izlenebilirlik.md](test-izlenebilirlik.md) (`composer izlene
 | Başarılı | `200 {"basarili":true,"musait":true,"gece":3,"geceler":[{"tarih","aciklama","tutar","metin"}],"konaklama_toplami","indirim","ek_kalemler","toplam","iptal_kosulu","alternatifler":[{"giris","cikis","metin"}]}` |
 | Doğrulama hatası | `422 {"basarili":false,"hatalar":{"cikis":"Çıkış tarihi giriş tarihinden sonra olmalıdır."}}` |
 | Bulunamadı / oturum / yoğunluk | `404` / `401` / `503 {"basarili":false,"hata":"..."}` (Kernel `/api/` altında hataları da JSON döndürür) |
+| Bozuk kodlanmış (UTF-8 olmayan) girdi | `400 {"basarili":false,"hata":"..."}` |
 
 Para alanları `"1080.00"` biçiminde metin (DECIMAL) ve `"1.080,00 TL"` biçiminde gösterim metni olarak iki kez verilir; JSON'da kayan nokta kullanılmaz (BR-25).
 
