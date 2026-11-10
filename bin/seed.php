@@ -18,8 +18,8 @@ if (!$force && !$container->needsDemoData()) {
     exit(1);
 }
 
-// Eski yüklemeler yeni veride hiçbir kayda bağlı olmayacağı için önce temizlenir;
-// örnek veri kendi fotoğraflarını (GD ile çizilen) ardından yazar.
+// Eski yüklemeler yeni veride hiçbir kayda bağlı olmayacağı için temizlenir. Örnek veri fotoğraf
+// üretmez (ders kuralı: resim, ikon veya çizim dosyası hazırlanmaz); fotoğrafı ilan sahibi yükler.
 foreach (glob($container->settings->uploadDir . '/*') ?: [] as $file) {
     if (preg_match('/\.(jpe?g|png|webp)$/i', $file) === 1) {
         @unlink($file);
