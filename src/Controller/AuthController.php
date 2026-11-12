@@ -119,9 +119,16 @@ final class AuthController extends Controller
         return $this->redirect('/giris');
     }
 
+    /** FR-04: bağlantı açılınca önce geçerliliği denetlenir; süresi dolmuş veya kullanılmışsa form gösterilmez. */
     public function showReset(Request $request, string $token): Response
     {
-        return $this->render('auth/reset', ['title' => 'Yeni parola', 'token' => $token, 'errors' => []]);
+        try {
+            $record = $this->authService->usableResetToken($token);
+        } catch (ValidationException $e) {
+            return $this->invalidResetLink($token, $e);
+        }
+
+        return $this->render('auth/reset', ['title' => 'Yeni parola', 'token' => $token, 'errors' => [], 'invalid' => null, 'expiresAt' => $record->expiresAt]);
     }
 
     public function reset(Request $request, string $token): Response
@@ -129,11 +136,27 @@ final class AuthController extends Controller
         try {
             $this->authService->resetPassword($token, $request->input('parola'));
         } catch (ValidationException $e) {
-            return $this->render('auth/reset', ['title' => 'Yeni parola', 'token' => $token, 'errors' => $e->errors()], 422);
+            if (isset($e->errors()['jeton'])) {
+                return $this->invalidResetLink($token, $e);
+            }
+
+            return $this->render('auth/reset', ['title' => 'Yeni parola', 'token' => $token, 'errors' => $e->errors(), 'invalid' => null, 'expiresAt' => null], 422);
         }
         $this->flash('success', 'Parolanız güncellendi. Yeni parolanızla giriş yapabilirsiniz.');
 
         return $this->redirect('/giris');
+    }
+
+    /** Geçersiz, kullanılmış veya süresi dolmuş bağlantı: form yerine nedeni ve yeni bağlantı isteme düğmesi (410 Gone). */
+    private function invalidResetLink(string $token, ValidationException $e): Response
+    {
+        return $this->render('auth/reset', [
+            'title' => 'Yeni parola',
+            'token' => $token,
+            'errors' => [],
+            'invalid' => $e->errors()['jeton'] ?? $e->getMessage(),
+            'expiresAt' => null,
+        ], 410);
     }
 
     private function homeFor(User $user): string
