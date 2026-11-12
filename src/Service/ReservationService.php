@@ -95,6 +95,7 @@ final class ReservationService
             $available,
             $available ? [] : $this->conflicts->suggestAlternatives($unitId, $range),
             $this->refunds->policyFor($property->cancellationPolicy)->description(),
+            $available ? [] : $this->conflicts->unavailableNights($unitId, $range),
         );
     }
 

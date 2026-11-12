@@ -108,7 +108,47 @@ final class PasswordResetWebTest extends AppTestCase
         self::assertSame(200, $this->get('/parola-sifirla/' . $token)->status);
         self::assertSame(303, $this->post('/parola-sifirla/' . $token, ['parola' => 'YeniParola2026'])->status);
         self::assertSame('ali@evotel.test', $this->c->authService()->login('ali@evotel.test', 'YeniParola2026')->email, 'Yeni parolayla giriş yapılır');
-        self::assertSame(422, $this->post('/parola-sifirla/' . $token, ['parola' => 'BaskaParola2026'])->status, 'Bağlantı ikinci kez kullanılamaz');
+        self::assertSame(410, $this->post('/parola-sifirla/' . $token, ['parola' => 'BaskaParola2026'])->status, 'Bağlantı ikinci kez kullanılamaz');
+    }
+
+    /** Posta kutusundaki son sıfırlama iletisinin bağlantısındaki jeton. */
+    private function tokenFromMailbox(): string
+    {
+        $id = $this->c->mailbox()->latest()[0]->id;
+        self::assertSame(1, preg_match('~/parola-sifirla/([0-9a-f]{64})~', $this->get('/posta-kutusu/' . $id)->body, $m));
+
+        return $m[1];
+    }
+
+    /**
+     * Hata kaydı H-02 (docs/hata-kayitlari.md): sıfırlama bağlantısı açıldığında süresi ve kullanılıp
+     * kullanılmadığı denetlenir. Geçerliyse form ve son geçerlilik zamanı, değilse form yerine açık bir
+     * mesaj ve yeni bağlantı isteme düğmesi gösterilir (410).
+     */
+    public function testExpiredOrUsedLinkShowsAMessageInsteadOfTheForm(): void
+    {
+        $this->post('/parola-sifirla', ['eposta' => 'ali@evotel.test']);
+        $token = $this->tokenFromMailbox();
+
+        $open = $this->get('/parola-sifirla/' . $token);
+        self::assertSame(200, $open->status);
+        self::assertStringContainsString('name="parola"', $open->body);
+        self::assertStringContainsString('geçerlilik sonu', $open->body);
+
+        $this->clock->advance('+61 minutes');
+        $expired = $this->get('/parola-sifirla/' . $token);
+        self::assertSame(410, $expired->status);
+        self::assertStringContainsString('süresi dolmuş', $expired->body);
+        self::assertStringNotContainsString('name="parola"', $expired->body, 'Süresi dolan bağlantıda form gösterilmez');
+        self::assertStringContainsString('Yeni bağlantı iste', $expired->body);
+        self::assertSame(410, $this->post('/parola-sifirla/' . $token, ['parola' => 'YeniParola2026'])->status);
+
+        $this->post('/parola-sifirla', ['eposta' => 'ali@evotel.test']);
+        $fresh = $this->tokenFromMailbox();
+        self::assertSame(303, $this->post('/parola-sifirla/' . $fresh, ['parola' => 'YeniParola2026'])->status);
+        $used = $this->get('/parola-sifirla/' . $fresh);
+        self::assertSame(410, $used->status, 'Kullanılmış bağlantı ikinci kez açılmaz');
+        self::assertStringNotContainsString('name="parola"', $used->body);
     }
 
     public function testMailboxIsOnlyServedLocallyAndWhenEnabled(): void

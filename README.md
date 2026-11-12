@@ -100,7 +100,7 @@ Kullanıcı bir ilan veya rezervasyon için şikâyet gönderince (FR-27):
 
 ### Parola sıfırlama ve e-posta
 
-Parola sıfırlama bağlantısı (FR-04) 60 dakika geçerli ve tek kullanımlıktır. Güvenlik nedeniyle kayıtlı olmayan bir adres girildiğinde de aynı mesaj gösterilir; böylece hangi e-postaların kayıtlı olduğu dışarıdan öğrenilemez. Kendi adresinizle denemek için önce o adresle kayıt olun (`composer seed` verileri sıfırladığı için o kayıt da silinir).
+Parola sıfırlama bağlantısı (FR-04) 60 dakika geçerli ve tek kullanımlıktır. Bağlantı açıldığında süresi ve kullanılıp kullanılmadığı denetlenir; geçersizse form yerine nedeni ve "Yeni bağlantı iste" düğmesi gösterilir, geçerliyse formun üstünde geçerlilik sonu yazar. Güvenlik nedeniyle kayıtlı olmayan bir adres girildiğinde de aynı mesaj gösterilir; böylece hangi e-postaların kayıtlı olduğu dışarıdan öğrenilemez. Kendi adresinizle denemek için önce o adresle kayıt olun (`composer seed` verileri sıfırladığı için o kayıt da silinir).
 
 | Kip | Ne olur | Nasıl açılır |
 | --- | --- | --- |
@@ -150,7 +150,7 @@ composer test
 
 | Komut | Ne yapar |
 | --- | --- |
-| `composer test` | Tüm PHPUnit testleri, JSON deposunda (240 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
+| `composer test` | Tüm PHPUnit testleri, JSON deposunda (244 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
 | `composer test:mysql` | Aynı testler MySQL'de (`evotel_test` veritabanı; `EVOTEL_TEST_DB_HOST/PORT/USER/PASSWORD`). Testler her seferinde tabloları boşalttığı için adı `_test` ile bitmeyen veritabanında çalışmaz. |
 | `composer test:hizli` | Eşzamanlılık testleri hariç |
 | `composer kapsam` | Satır kapsamı (Xdebug gerekir; HTML rapor `coverage/`) |
@@ -159,7 +159,7 @@ composer test
 | `composer analiz` | PHPStan statik analiz (seviye 6; `src`, `bin`, `config`, `tests`) |
 | `composer stil` / `composer stil:duzelt` | PSR-12 kod stili denetimi / otomatik düzeltme |
 
-Son çalıştırma (12.11.2026): JSON deposunda 240 test / 1755 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 240 test / 1809 doğrulama, hepsi geçti. Kural bozma deneyinde 7 kuralın 7'sinde ilgili testler kırıldı. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,1 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
+Son çalıştırma (12.11.2026): JSON deposunda 244 test / 1788 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 244 test / 1842 doğrulama, hepsi geçti. Kural bozma deneyinde 7 kuralın 7'sinde ilgili testler kırıldı. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,4 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
 
 Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group FR-18` (her test doğruladığı gereksinim kodunu `#[Group]` olarak taşır).
 
@@ -186,6 +186,7 @@ Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group F
 | Kısmi yenileme: JSON yanıtla ekran parçasını güncelleme, hata mesajı | Rezervasyon durumu: `GET /api/rezervasyon/{no}/durum`, 5 saniyede bir; süre kararı sunucuda |
 | `docs/ai-gunlugu.md` (yapay zekânın yanıldığı örnek dahil) | [docs/ai-gunlugu.md](docs/ai-gunlugu.md), "Yapay zekânın yanıldığı… durumlar" bölümü |
 | `docs/surec-raporu.md` | [docs/surec-raporu.md](docs/surec-raporu.md) |
+| İnceleme ve denemelerde bulunan sorunların somut yazılması, düzeltmelerin raporlanması | [docs/hata-kayitlari.md](docs/hata-kayitlari.md) (belirti, yeniden üretme, kök neden, düzeltme, doğrulayan test) |
 | Ayrı dallar, PR ile birleştirme, en az bir arkadaştan inceleme, herkesin kendi hesabıyla katkısı | Her iş ayrı dalda ve PR ile birleştirildi; ekip deposuna yükleme her üyenin kendi hesabıyla ve incelemeli PR ile yapılır |
 
 ## Ders şartları ve standart tablosu
@@ -201,7 +202,7 @@ Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group F
 | **Eşzamanlılık:** transaction ve satır kilidi | MySQL: `BEGIN … SELECT … FOR UPDATE … COMMIT`, kilit bekleme 5 sn, 2 yeniden deneme; JSON: dosya kilidi; koşullu güncelleme + `UNIQUE(birim, gece)`; 50 süreçli testler |
 | **Güvenlik:** hazırlıklı ifadeler, `password_hash`, XSS kaçışı, CSRF, `session_regenerate_id`, her işlemde yetki | `MySqlDatabase` (`ATTR_EMULATE_PREPARES=false`), `AuthService`, `e()`, `Kernel` (CSRF), `Auth::login` ve parola değişiminde oturum kimliği yenileme, rota yetkisi + servislerde sahiplik denetimi |
 | **Etkileşim:** JSON döndüren AJAX ucu | `GET /api/musaitlik` (`ApiController`), `GET /api/rezervasyon/{no}/durum` (JSON ile kısmi yenileme) + 3 kendiliğinden yenilenen HTML bölümü (`/parca/...`); beklenmeyen yanıtta kullanıcıya uyarı |
-| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (240 test), [docs/izlenebilirlik.md](docs/izlenebilirlik.md), [kural bozma deneyi](docs/kural-bozma-deneyi.md) |
+| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (244 test), [docs/izlenebilirlik.md](docs/izlenebilirlik.md), [kural bozma deneyi](docs/kural-bozma-deneyi.md) |
 | **Kod kalitesi:** PHPStan, hatasız çalışma, anlaşılır hata mesajları | `composer analiz` (seviye 6, testler dahil), alan bazlı doğrulama mesajları, JSON uçta JSON hata, depo erişilemezse 503 ve açıklama |
 | **Süreç:** GitHub deposu, anlamlı commit geçmişi, Projects backlog, README | Bu depo; her SRS gereksinimi bir issue, 3 aşama milestone'u, [GitHub Projects panosu](https://github.com/users/Kayazilim/projects/1) (Yapılacak / Yapılıyor / Bitti, SRS önceliği, aşama görünümleri; issue kapanınca veya PR birleşince kart kendiliğinden Bitti'ye geçer), PR ile birleştirme |
 
@@ -233,7 +234,7 @@ database/    migrations/ (MySQL şeması, 3NF), sorgular/ (JOIN'li rapor sorgusu
 bin/         seed.php, gorev.php, migrate.php, yedek.php, izlenebilirlik.php, kural-boz.php, eposta-dene.php
 storage/     data (JSON tablolar), uploads, logs, mail (simüle e-posta), backups – web'den erişilemez
 tests/       Unit, Integration, Concurrency, Support/InMemory (bellekteki sahte depolar) (+ bin/rezervasyon-isci.php paralel süreç, bin/sahte-smtp.php)
-docs/        srs.md, tasarim.md, izlenebilirlik.md, kural-bozma-deneyi.md, surec-raporu.md, yedekleme.md, ai-gunlugu.md, arayüz tasarımları
+docs/        srs.md, tasarim.md, izlenebilirlik.md, kural-bozma-deneyi.md, surec-raporu.md, hata-kayitlari.md, yedekleme.md, ai-gunlugu.md, arayüz tasarımları
 ```
 
 ## Belgeler
@@ -243,5 +244,6 @@ docs/        srs.md, tasarim.md, izlenebilirlik.md, kural-bozma-deneyi.md, surec
 - [İzlenebilirlik: kullanıcı hikâyesi ve gereksinim → test](docs/izlenebilirlik.md)
 - [Kural bozma deneyi](docs/kural-bozma-deneyi.md)
 - [Süreç raporu](docs/surec-raporu.md)
+- [Hata kayıtları: bulunan hatalar ve düzeltmeleri](docs/hata-kayitlari.md)
 - [Yedekleme ve geri yükleme](docs/yedekleme.md)
 - [Yapay zekâ kullanım günlüğü](docs/ai-gunlugu.md)

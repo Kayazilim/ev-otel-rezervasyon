@@ -503,6 +503,42 @@ final class WebTest extends AppTestCase
         }
     }
 
+    /**
+     * Hata kaydı H-01 (docs/hata-kayitlari.md): "müsait değil" yanıtı hangi gecelerin dolu olduğunu söyler;
+     * dolu bir konaklamanın çıkış günü listede yer almaz (yeni girişe açıktır). JSON ucu ve önizleme sayfası.
+     */
+    #[Group('BR-13')]
+    #[Group('FR-10')]
+    #[Group('FR-36')]
+    public function testUnavailableAnswerNamesTheTakenNights(): void
+    {
+        $booked = null;
+        foreach ($this->c->reservations()->all() as $reservation) {
+            if ($reservation->status === \App\Model\ReservationStatus::Onaylandi && $reservation->checkIn > $this->clock->today() && $reservation->nights() >= 2) {
+                $booked = $reservation;
+                break;
+            }
+        }
+        self::assertNotNull($booked, 'Örnek veride gelecekte en az 2 gecelik onaylı rezervasyon var');
+        $in = $booked->checkIn->modify('+1 day');
+        $out = $booked->checkOut->modify('+1 day');
+        $expected = [];
+        for ($night = $in; $night < $booked->checkOut; $night = $night->modify('+1 day')) {
+            $expected[] = $night->format('Y-m-d');
+        }
+        $query = ['birim' => (string) $booked->unitId, 'giris' => $in->format('Y-m-d'), 'cikis' => $out->format('Y-m-d'), 'kisi' => '1'];
+
+        $data = $this->json($this->get('/api/musaitlik', $query));
+        self::assertFalse($data['musait']);
+        self::assertSame($expected, array_column($data['dolu_geceler'], 'tarih'));
+        self::assertNotContains($booked->checkOut->format('Y-m-d'), array_column($data['dolu_geceler'], 'tarih'), 'Çıkış günü dolu sayılmaz');
+
+        $this->loginAs('selin@evotel.test');
+        $page = $this->get('/rezervasyon/onizleme', $query);
+        self::assertStringContainsString('Dolu gece', $page->body);
+        self::assertStringContainsString($in->format('d.m.Y'), $page->body);
+    }
+
     private function customerReservationNumber(string $email): string
     {
         $user = $this->c->users()->findByEmail($email);

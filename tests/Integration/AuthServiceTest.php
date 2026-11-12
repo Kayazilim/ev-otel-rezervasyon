@@ -136,4 +136,60 @@ final class AuthServiceTest extends AppTestCase
         $auth->changePassword((int) $user->id, 'Parola1234', 'YeniParola99');
         self::assertSame((int) $user->id, $auth->login('burak@example.com', 'YeniParola99')->id);
     }
+
+    /** Sıfırlama bağlantısı ister ve e-postaya konacak jetonu döndürür. */
+    private function resetTokenFor(string $email): string
+    {
+        $token = '';
+        $this->c->authService()->requestPasswordReset($email, function (string $t) use (&$token): string {
+            $token = $t;
+
+            return 'http://test/parola-sifirla/' . $t;
+        });
+
+        return $token;
+    }
+
+    /** @return array<string, string> */
+    private function errorsOf(callable $action): array
+    {
+        try {
+            $action();
+        } catch (ValidationException $e) {
+            return $e->errors();
+        }
+        self::fail('ValidationException bekleniyordu');
+    }
+
+    /**
+     * Hata kaydı H-02 (docs/hata-kayitlari.md): bağlantının geçerliliği hem sayfa açılırken hem parola
+     * gönderilirken aynı kuralla denetlenir. Süresi dolmuş bağlantıda parola kuralından önce bağlantının
+     * durumu söylenir; her geçersiz durumun açık bir mesajı vardır.
+     */
+    #[Group('FR-04')]
+    #[Group('NFR-02')]
+    public function testResetLinkValidityIsCheckedFirstAndExplained(): void
+    {
+        $auth = $this->c->authService();
+        $auth->register('Okan', 'Er', 'okan@example.com', 'EskiParola1', Role::Musteri);
+        $token = $this->resetTokenFor('okan@example.com');
+
+        $record = $auth->usableResetToken($token);
+        self::assertSame(3600, $record->expiresAt->getTimestamp() - $this->clock->now()->getTimestamp(), '60 dakika geçerli');
+        $this->clock->advance('+59 minutes');
+        $auth->usableResetToken($token); // 59. dakikada hâlâ geçerli
+        $this->clock->advance('+1 minute');
+        self::assertStringContainsString('süresi dolmuş', $this->errorsOf(fn () => $auth->usableResetToken($token))['jeton'], '60. dakikada süresi dolar');
+        self::assertArrayHasKey('jeton', $this->errorsOf(fn () => $auth->resetPassword($token, 'kisa')), 'Önce bağlantının durumu söylenir, parola kuralı değil');
+
+        $older = $this->resetTokenFor('okan@example.com');
+        $newer = $this->resetTokenFor('okan@example.com');
+        self::assertStringContainsString('artık geçerli değil', $this->errorsOf(fn () => $auth->usableResetToken($older))['jeton'], 'Yenisi istenince eskisi geçersiz olur');
+        $auth->usableResetToken($newer);
+        self::assertStringContainsString('geçersiz', $this->errorsOf(fn () => $auth->usableResetToken(str_repeat('0', 64)))['jeton']);
+
+        self::assertArrayHasKey('parola', $this->errorsOf(fn () => $auth->resetPassword($newer, 'kisa')), 'Geçerli bağlantıda parola kuralı uygulanır');
+        $auth->resetPassword($newer, 'YeniParola1');
+        self::assertStringContainsString('artık geçerli değil', $this->errorsOf(fn () => $auth->usableResetToken($newer))['jeton'], 'Kullanılan bağlantı ikinci kez açılmaz');
+    }
 }

@@ -9,11 +9,15 @@ use App\Model\Property;
 use App\Model\User;
 use App\Service\Pricing\PriceQuote;
 use App\Support\DateRange;
+use DateTimeImmutable;
 
 /** UC-02 adım 2: ön kontrol ve fiyat dökümü. Bu aşamada geceler tutulmaz. */
 final class ReservationPreview
 {
-    /** @param list<DateRange> $alternatives */
+    /**
+     * @param list<DateRange> $alternatives
+     * @param list<DateTimeImmutable> $unavailableNights müsait değilse dolu geceler (BookingConflictService::unavailableNights)
+     */
     public function __construct(
         public readonly Property $property,
         public readonly BookableUnit $unit,
@@ -24,6 +28,7 @@ final class ReservationPreview
         public readonly bool $available,
         public readonly array $alternatives,
         public readonly string $policyText,
+        public readonly array $unavailableNights = [],
     ) {
     }
 }

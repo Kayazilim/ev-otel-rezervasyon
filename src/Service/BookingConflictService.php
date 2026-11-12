@@ -151,8 +151,31 @@ final class BookingConflictService
 
         if ($this->conflictingReservations($unitId, $range) !== [] || $this->closedNights($unitId, $range) !== []) {
             $this->logger->info('cakisma_reddi', ['birim' => $unitId, 'giris' => $range->checkIn->format('Y-m-d'), 'cikis' => $range->checkOut->format('Y-m-d')]);
-            throw new ConflictException('Seçtiğiniz tarihler artık müsait değil.', $this->suggestAlternatives($unitId, $range));
+            throw new ConflictException('Seçtiğiniz tarihler artık müsait değil.', $this->suggestAlternatives($unitId, $range), $this->unavailableNights($unitId, $range));
         }
+    }
+
+    /**
+     * Aralıktaki dolu geceler: engelleyen rezervasyonların geceleri ve ilan sahibinin kapattığı geceler (tarih sırasıyla).
+     * "Neden müsait değil?" sorusunun cevabıdır; başka kullanıcının bilgisini içermez (NFR-04). Yarı açık aralık
+     * gereği bir konaklamanın çıkış günü listede yer almaz; o gün yeni girişe açıktır (BR-13).
+     *
+     * @return list<DateTimeImmutable>
+     */
+    public function unavailableNights(int $unitId, DateRange $range): array
+    {
+        $taken = array_fill_keys($this->closedNights($unitId, $range), true);
+        foreach ($this->conflictingReservations($unitId, $range) as $reservation) {
+            foreach ($range->nightDates() as $night) {
+                if ($reservation->range()->containsNight($night)) {
+                    $taken[$night->format('Y-m-d')] = true;
+                }
+            }
+        }
+        $days = array_map('strval', array_keys($taken));
+        sort($days);
+
+        return array_map(static fn (string $day): DateTimeImmutable => DateRange::parseDate($day), $days);
     }
 
     /**

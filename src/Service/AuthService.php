@@ -163,19 +163,44 @@ final class AuthService
         );
     }
 
+    /**
+     * FR-04: sıfırlama bağlantısı hâlâ kullanılabilir mi? (tek kullanımlık, 60 dakika geçerli)
+     * Kullanılabilirse jeton kaydını döndürür; değilse kullanıcıya gösterilecek nedenle ValidationException atar.
+     * Aynı denetim hem bağlantı açılırken (form gösterilmeden önce) hem parola gönderilirken yapılır.
+     */
+    public function usableResetToken(string $token): PasswordResetToken
+    {
+        $record = $this->tokens->findByHash(hash('sha256', $token));
+        if ($record === null) {
+            throw ValidationException::single('jeton', 'Bu parola sıfırlama bağlantısı geçersiz. Lütfen yeni bir bağlantı isteyin.');
+        }
+        if ($record->usedAt !== null) {
+            throw ValidationException::single(
+                'jeton',
+                'Bu bağlantı artık geçerli değil: daha önce kullanılmış ya da yerine yeni bir bağlantı istenmiş. Lütfen yeni bir bağlantı isteyin.'
+            );
+        }
+        if ($record->expiresAt <= $this->clock->now()) {
+            throw ValidationException::single('jeton', sprintf(
+                'Bu bağlantının süresi dolmuş (bağlantılar %d dakika geçerlidir). Lütfen yeni bir bağlantı isteyin.',
+                $this->settings->passwordResetMinutes
+            ));
+        }
+
+        return $record;
+    }
+
     public function resetPassword(string $token, string $newPassword): void
     {
-        if (($error = $this->passwordError($newPassword)) !== null) {
-            throw ValidationException::single('parola', $error);
-        }
         $now = $this->clock->now();
         $this->tx->transactional(function () use ($token, $newPassword, $now): void {
-            $record = $this->tokens->findByHash(hash('sha256', $token));
-            if ($record === null || $record->usedAt !== null || $record->expiresAt <= $now) {
-                throw ValidationException::single('jeton', 'Bağlantı geçersiz, kullanılmış veya süresi dolmuş. Lütfen yeniden talep edin.');
+            // Önce bağlantının durumu: süresi dolmuş bağlantıda parola kuralı değil, bu söylenir.
+            $record = $this->usableResetToken($token);
+            if (($error = $this->passwordError($newPassword)) !== null) {
+                throw ValidationException::single('parola', $error);
             }
             if (!$this->tokens->markUsedIfUnused((int) $record->id, $now)) {
-                throw ValidationException::single('jeton', 'Bu bağlantı zaten kullanılmış.');
+                throw ValidationException::single('jeton', 'Bu bağlantı artık geçerli değil: daha önce kullanılmış. Lütfen yeni bir bağlantı isteyin.');
             }
             $user = $this->users->findById($record->userId) ?? throw ValidationException::single('jeton', 'Kullanıcı bulunamadı.');
             $user->passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);

@@ -83,6 +83,11 @@ final class ApiController extends Controller
                 fn (DateRange $alt): array => ['giris' => $alt->checkIn->format('Y-m-d'), 'cikis' => $alt->checkOut->format('Y-m-d'), 'metin' => (string) $alt],
                 $preview->alternatives
             ),
+            // Müsait değilse hangi gecelerin dolu olduğu (çıkış günü dolu sayılmaz, BR-13)
+            'dolu_geceler' => array_map(
+                fn (\DateTimeImmutable $night): array => ['tarih' => $night->format('Y-m-d'), 'metin' => $night->format('d.m.Y')],
+                $preview->unavailableNights
+            ),
         ]);
     }
 
