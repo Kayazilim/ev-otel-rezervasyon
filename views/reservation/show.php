@@ -19,14 +19,28 @@ $isHost = $currentUser->id === $r->property->ownerId;
 
 <div class="card shadow-sm mb-3">
     <div class="card-body">
-        <!-- Kısmi yenileme: durum bölümü 5 saniyede bir yenilenir -->
-        <div id="durum-bolumu">Yükleniyor...</div>
+        <!-- Kısmi yenileme (JSON): durum ve kalan bekletme süresi 5 saniyede bir sunucudan alınır -->
+        <div id="durum-bolumu"><?= $view->partial('reservation/_status', ['durum' => $durum]) ?></div>
         <script>
+        const durumAdresi = '<?= e($view->url('/api/rezervasyon/' . $res->number . '/durum')) ?>';
+        const ilkDurum = '<?= e($durum['durum']) ?>';
         async function durumYenile() {
-            const yanit = await fetch('<?= e($view->url('/parca/rezervasyon/' . $res->number)) ?>');
-            document.getElementById('durum-bolumu').innerHTML = await yanit.text();
+            const kutu = document.getElementById('durum-bolumu');
+            const veri = await jsonIstegi(durumAdresi, kutu); // hata yanıtında uyarı gösterilir, null döner (layout.php)
+            if (veri === null) {
+                return;
+            }
+            const alan = ad => kutu.querySelector('[data-alan="' + ad + '"]');
+            alan('etiket').className = 'badge text-bg-' + (/^[a-z]+$/.test(veri.rozet) ? veri.rozet : 'secondary');
+            alan('etiket').textContent = veri.etiket;
+            alan('kalan-kutu').hidden = veri.kalan_metin === null;
+            alan('kalan').textContent = veri.kalan_metin || '';
+            alan('bitis').textContent = veri.bitis || '';
+            alan('mesaj').textContent = veri.mesaj;
+            alan('saat').textContent = veri.saat;
+            // Durum değiştiyse (ör. ilan sahibi onayladı) sayfadaki işlem düğmeleri eskidir; kullanıcıya söylenir.
+            alan('degisti').hidden = veri.durum === ilkDurum;
         }
-        durumYenile();
         setInterval(durumYenile, 5000);
         </script>
     </div>

@@ -33,6 +33,82 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&amp;display=swap">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="<?= e($view->url('/assets/app.css')) ?>">
+    <script>
+    // Kısmi yenileme ve canlı arama yardımcıları (sayfa betiklerinden önce yüklenir).
+    // Sunucu hata yanıtı verirse ya da ulaşılamazsa bölümün başında anlaşılır bir uyarı gösterilir;
+    // oturum bittiyse (401) giriş sayfasına gidilir. Önemli kararlar (süre, yetki) her zaman sunucudadır.
+    const girisAdresi = '<?= e($view->url('/giris')) ?>';
+    const httpMesajlari = {
+        400: 'Gönderilen bilgiler okunamadı.',
+        403: 'Bu bölümü görme yetkiniz yok.',
+        404: 'Bu bölümün içeriği bulunamadı.',
+        503: 'Sunucu şu an yoğun.',
+    };
+    // mesaj null ise uyarı kaldırılır. "Yükleniyor..." yer tutucusu hata durumunda silinir.
+    function bolumUyarisi(kutu, mesaj) {
+        let uyari = kutu.querySelector(':scope > .bolum-uyari');
+        if (mesaj === null) {
+            if (uyari) {
+                uyari.remove();
+            }
+            return;
+        }
+        kutu.querySelector(':scope > .yukleniyor')?.remove();
+        if (!uyari) {
+            uyari = document.createElement('div');
+            uyari.className = 'bolum-uyari alert alert-warning py-1 px-2 small mb-2';
+            uyari.setAttribute('role', 'alert');
+            kutu.prepend(uyari);
+        }
+        uyari.textContent = mesaj;
+    }
+    // HTML parçası ister. Başarılıysa yanıtı döndürür; değilse uyarıyı gösterip null döndürür.
+    async function bolumIstegi(adres, kutu) {
+        let yanit;
+        try {
+            yanit = await fetch(adres, {headers: {'X-Requested-With': 'fetch'}});
+        } catch (hata) {
+            bolumUyarisi(kutu, 'Sunucuya ulaşılamadı; bağlantınızı kontrol edin. Bölüm birkaç saniye sonra yeniden denenecek.');
+            return null;
+        }
+        if (yanit.status === 401) {
+            window.location.href = girisAdresi;
+            return null;
+        }
+        if (!yanit.ok) {
+            bolumUyarisi(kutu, (httpMesajlari[yanit.status] || 'Sunucuda bir sorun oluştu.') + ' Bölüm güncellenemedi (HTTP ' + yanit.status + ').');
+            return null;
+        }
+        return yanit;
+    }
+    // JSON ister ({"basarili": true, ...}). Başarılıysa veriyi döndürür; değilse uyarıyı gösterip null döndürür.
+    async function jsonIstegi(adres, kutu) {
+        let yanit;
+        let veri = null;
+        try {
+            yanit = await fetch(adres, {headers: {'Accept': 'application/json', 'X-Requested-With': 'fetch'}});
+        } catch (hata) {
+            bolumUyarisi(kutu, 'Sunucuya ulaşılamadı; bağlantınızı kontrol edin. Bölüm birkaç saniye sonra yeniden denenecek.');
+            return null;
+        }
+        if (yanit.status === 401) {
+            window.location.href = girisAdresi;
+            return null;
+        }
+        try {
+            veri = await yanit.json();
+        } catch (hata) {
+            veri = null;
+        }
+        if (!yanit.ok || veri === null || veri.basarili !== true) {
+            const mesaj = veri !== null && typeof veri.hata === 'string' ? veri.hata : (httpMesajlari[yanit.status] || 'Sunucudan beklenmeyen bir yanıt geldi.');
+            bolumUyarisi(kutu, mesaj + ' Bölüm güncellenemedi (HTTP ' + yanit.status + ').');
+            return null;
+        }
+        bolumUyarisi(kutu, null);
+        return veri;
+    }
+    </script>
 </head>
 <body>
 <header class="ust-bar">
@@ -124,16 +200,28 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script>
-// Oturum sona erdiyse (zaman aşımı, başka sekmede çıkış) arka plan isteği 401 alır; giriş sayfasına dönülür.
-const girisAdresi = '<?= e($view->url('/giris')) ?>';
 // Bonus: favori formu sayfa yenilenmeden gönderilir; PHP düğmenin yeni HTML'ini döndürür.
+// Oturum sona erdiyse (401) giriş sayfasına gidilir; sunucuya ulaşılamazsa düğmenin altında uyarı çıkar.
 document.addEventListener('submit', async function (olay) {
     const form = olay.target;
     if (!form.matches('[data-favori]')) {
         return;
     }
     olay.preventDefault();
-    const yanit = await fetch(form.action, {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'fetch'}});
+    let yanit;
+    try {
+        yanit = await fetch(form.action, {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'fetch'}});
+    } catch (hata) {
+        let uyari = form.querySelector('.favori-uyari');
+        if (!uyari) {
+            uyari = document.createElement('div');
+            uyari.className = 'favori-uyari small text-danger mt-1';
+            uyari.setAttribute('role', 'alert');
+            form.append(uyari);
+        }
+        uyari.textContent = 'Sunucuya ulaşılamadı; favori kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.';
+        return;
+    }
     if (yanit.ok) {
         form.outerHTML = await yanit.text();
     } else if (yanit.status === 401) {
@@ -154,12 +242,29 @@ document.addEventListener('submit', function (olay) {
 <script>
 // Kısmi yenileme (ders kalıbı, "birkaç saniyede bir"): okunmamış bildirim sayısı 5 saniyede bir güncellenir.
 async function bildirimYenile() {
-    const yanit = await fetch('<?= e($view->url('/parca/bildirim-sayaci')) ?>');
-    if (yanit.ok) {
-        document.getElementById('bildirim-sayaci').innerHTML = await yanit.text();
-    } else if (yanit.status === 401) {
-        window.location.href = girisAdresi;
+    const sayac = document.getElementById('bildirim-sayaci');
+    let yanit;
+    try {
+        yanit = await fetch('<?= e($view->url('/parca/bildirim-sayaci')) ?>');
+    } catch (hata) {
+        yanit = null;
     }
+    if (yanit !== null && yanit.status === 401) {
+        window.location.href = girisAdresi;
+        return;
+    }
+    if (yanit === null || !yanit.ok) {
+        // Menüdeki küçük sayaçta yer dar: uyarı işareti ve açıklaması (ekran okuyucu ve fare üzerine gelince) gösterilir.
+        sayac.innerHTML = '';
+        const isaret = document.createElement('span');
+        isaret.className = 'badge text-bg-warning';
+        isaret.textContent = '!';
+        isaret.title = 'Bildirim sayısı güncellenemedi; birkaç saniye sonra yeniden denenecek.';
+        isaret.setAttribute('aria-label', isaret.title);
+        sayac.append(isaret);
+        return;
+    }
+    sayac.innerHTML = await yanit.text();
 }
 bildirimYenile();
 setInterval(bildirimYenile, 5000);

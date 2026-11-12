@@ -130,8 +130,11 @@ canliKutu.addEventListener('input', function () {
     clearTimeout(canliZamanlayici);
     canliZamanlayici = setTimeout(async function () {
         const parametreler = new URLSearchParams(new FormData(document.getElementById('filtre-formu')));
-        const yanit = await fetch('<?= e($view->url('/parca/arama')) ?>?' + parametreler.toString());
-        document.getElementById('sonuclar').innerHTML = await yanit.text();
+        const kutu = document.getElementById('sonuclar');
+        const yanit = await bolumIstegi('<?= e($view->url('/parca/arama')) ?>?' + parametreler.toString(), kutu);
+        if (yanit !== null) {
+            kutu.innerHTML = await yanit.text();
+        }
     }, 300);
 });
 </script>

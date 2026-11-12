@@ -60,9 +60,9 @@ final class Kernel
 
                 return $this->secure(Response::redirect($view->url('/giris')));
             }
-            // Kendiliğinden yenilenen sayfa bölümleri (/parca/...) kullanıcı işlemi sayılmaz;
+            // Kendiliğinden yenilenen bölümler (/parca/... HTML ve GET /api/... JSON) kullanıcı işlemi sayılmaz;
             // yoksa açık bırakılan bir sekme oturumu canlı tutar ve zaman aşımı hiç çalışmaz.
-            if (!$this->fragment) {
+            if (!$this->fragment && !($this->api && $request->method === 'GET')) {
                 $session->touch($now);
             }
 

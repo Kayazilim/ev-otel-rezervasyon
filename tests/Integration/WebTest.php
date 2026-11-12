@@ -503,6 +503,70 @@ final class WebTest extends AppTestCase
         }
     }
 
+    private function customerReservationNumber(string $email): string
+    {
+        $user = $this->c->users()->findByEmail($email);
+        self::assertNotNull($user);
+        $list = $this->c->reservations()->findByCustomer((int) $user->id);
+        self::assertNotEmpty($list, 'Örnek veride müşterinin rezervasyonu var');
+
+        return $list[0]->number;
+    }
+
+    /**
+     * Kısmi yenileme (ödev 5. bölüm): rezervasyon durumu JSON olarak alınır. Yalnızca müşterisi, ilgili ilan
+     * sahibi ve yönetici görebilir; hata durumları da JSON döner ki sayfa anlaşılır bir uyarı gösterebilsin.
+     * Bu istekler kullanıcı işlemi sayılmaz (oturum zaman aşımını ertelemez).
+     */
+    #[Group('FR-32')]
+    #[Group('FR-34')]
+    #[Group('NFR-03')]
+    #[Group('NFR-15')]
+    public function testReservationStatusIsServedAsJsonToAllowedUsersOnly(): void
+    {
+        $number = $this->customerReservationNumber('ali@evotel.test');
+        $path = '/api/rezervasyon/' . $number . '/durum';
+
+        self::assertSame(401, $this->get($path)->status, 'Oturum yoksa 401');
+        self::assertFalse($this->json($this->get($path))['basarili']);
+
+        $this->loginAs('ali@evotel.test');
+        $before = $_SESSION['_last_activity'];
+        $this->clock->advance('+5 minutes');
+        $data = $this->json($this->get($path));
+        self::assertTrue($data['basarili']);
+        foreach (['durum', 'etiket', 'rozet', 'kalan_saniye', 'kalan_metin', 'bitis', 'mesaj', 'saat'] as $key) {
+            self::assertArrayHasKey($key, $data);
+        }
+        self::assertSame($before, $_SESSION['_last_activity'], 'Kendiliğinden yenilenen JSON isteği oturum süresini uzatmaz');
+
+        $missing = $this->get('/api/rezervasyon/RZ-YOK-000000/durum');
+        self::assertSame(404, $missing->status);
+        self::assertFalse($this->json($missing)['basarili']);
+
+        $this->loginAs('can@evotel.test');
+        $other = $this->get($path);
+        self::assertSame(403, $other->status, 'Başka müşterinin rezervasyonu görülemez');
+        self::assertFalse($this->json($other)['basarili']);
+        self::assertStringNotContainsString($number, (string) $this->json($other)['hata']);
+    }
+
+    /** Rezervasyon sayfası durum bölümünü ilk açılışta HTML olarak basar, sonra JSON ucunu çağırır. */
+    #[Group('FR-32')]
+    public function testReservationPageRendersStatusAndPollsTheJsonEndpoint(): void
+    {
+        $number = $this->customerReservationNumber('ali@evotel.test');
+        $this->loginAs('ali@evotel.test');
+
+        $html = $this->get('/rezervasyon/' . $number)->body;
+
+        self::assertStringContainsString('id="durum-bolumu"', $html);
+        self::assertStringContainsString('data-alan="etiket"', $html);
+        self::assertStringContainsString('/api/rezervasyon/' . $number . '/durum', $html);
+        self::assertStringContainsString('jsonIstegi(', $html);
+        self::assertStringNotContainsString('Yükleniyor...</div>', $html, 'İlk durum sunucuda basılır');
+    }
+
     /**
      * Ödev 1. bölüm: formda hata olunca anlaşılır mesaj gösterilir ve daha önce girilen geçerli değerler korunur.
      * Tek formlu sayfalar 422 ile girilen değerlerle yeniden gösterilir.

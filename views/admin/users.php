@@ -33,8 +33,11 @@ document.getElementById('q').addEventListener('input', function () {
     clearTimeout(kullaniciZamanlayici);
     kullaniciZamanlayici = setTimeout(async function () {
         const parametreler = new URLSearchParams(new FormData(document.getElementById('kullanici-filtre')));
-        const yanit = await fetch('<?= e($view->url('/parca/kullanicilar')) ?>?' + parametreler.toString());
-        document.getElementById('kullanici-tablosu').innerHTML = await yanit.text();
+        const kutu = document.getElementById('kullanici-tablosu');
+        const yanit = await bolumIstegi('<?= e($view->url('/parca/kullanicilar')) ?>?' + parametreler.toString(), kutu);
+        if (yanit !== null) {
+            kutu.innerHTML = await yanit.text();
+        }
     }, 300);
 });
 </script>

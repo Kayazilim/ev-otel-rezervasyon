@@ -50,7 +50,7 @@ return static function (Router $r): void {
     $r->post('/rezervasyon', [ReservationController::class, 'store'], $guest);
     $r->get('/rezervasyonlarim', [ReservationController::class, 'index'], $guest);
     $r->get('/rezervasyon/{no}', [ReservationController::class, 'show'], 'auth');      // müşteri, ilan sahibi, yönetici (serviste denetlenir)
-    $r->get('/parca/rezervasyon/{no}', [ReservationController::class, 'statusFragment'], 'auth');
+    $r->get('/api/rezervasyon/{no}/durum', [ReservationController::class, 'statusJson'], 'auth'); // kısmi yenileme (JSON)
     $r->post('/rezervasyon/{no}/odeme', [ReservationController::class, 'pay'], $guest);
     $r->get('/rezervasyon/{no}/iptal', [ReservationController::class, 'cancelForm'], $guest);
     $r->post('/rezervasyon/{no}/iptal', [ReservationController::class, 'cancel'], $guest);
