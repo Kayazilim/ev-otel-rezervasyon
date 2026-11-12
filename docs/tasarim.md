@@ -1,6 +1,6 @@
 # Tasarım Dokümanı: Otel / Kiralık Ev Rezervasyon Sistemi
 
-> Gereksinimler: [docs/srs.md](srs.md) (SRS v2.3). Bu belgedeki sınıf ve tablo adları, Aşama 2'de yazılan kodla (`src/`) ve SRS Bölüm 4.7 ile birebir aynıdır. Gereksinim–test eşlemesi koddan üretilir: [docs/test-izlenebilirlik.md](test-izlenebilirlik.md).
+> Gereksinimler: [docs/srs.md](srs.md) (SRS v2.3). Bu belgedeki sınıf ve tablo adları, Aşama 2'de yazılan kodla (`src/`) ve SRS Bölüm 4.7 ile birebir aynıdır. Gereksinim–test eşlemesi koddan üretilir: [docs/izlenebilirlik.md](izlenebilirlik.md).
 
 ## 1. Mimari
 
@@ -698,7 +698,7 @@ Renkler rolü gösterir: gri = herkes, yeşil = kayıtlı müşteri, turuncu = y
 
 Eşleme, SRS'teki FR kartlarının "Olay/Kullanım Senaryosu" ve "Destekleyici Materyal" alanlarından çıkarıldı (Ek B ile uyumlu). Kalın yazılan ÇEKİRDEK gereksinimdir.
 
-> **Gereksinim → otomatik test eşlemesi** (her FR/NFR/BR/AC/CS/T kodunu doğrulayan PHPUnit testleri, JSON ve MySQL sonuçları, NFR-16 kapsamı) koddan üretilen [test-izlenebilirlik.md](test-izlenebilirlik.md) dosyasındadır; aşağıdaki tablo tasarım bileşeni eşlemesidir. Her gereksinim GitHub'da bir issue'dur (aşamalar milestone).
+> **Gereksinim → otomatik test eşlemesi** (her FR/NFR/BR/AC/CS/T kodunu doğrulayan PHPUnit testleri, JSON ve MySQL sonuçları, NFR-16 kapsamı) koddan üretilen [izlenebilirlik.md](izlenebilirlik.md) dosyasındadır; aşağıdaki tablo tasarım bileşeni eşlemesidir. Her gereksinim GitHub'da bir issue'dur (aşamalar milestone).
 
 | UC | Senaryo | FR sayısı | Çekirdek FR | AC sayısı | Test sayısı |
 | --- | --- | --- | --- | --- | --- |
@@ -907,20 +907,24 @@ Aşama 3'te aynı arayüzler PDO ile yazıldı: `beginTransaction()`, `SELECT ..
 | Profil alanları (SRS 11.5 açık karar) | Yalnızca ad, soyad ve parola değiştirilebilir; e-posta ve rol değiştirilemez. | SRS 11.5'teki öneri uygulandı. |
 | Yorum denetimi durumları | `yayinda`, `incelemede`, `gizlendi`. | ER'de değerler belirtilmemişti. |
 
-### 12.3 Sayfanın bir bölümünü kendiliğinden yenileme (ders kalıbı)
+### 12.3 Sayfanın bir bölümünü kendiliğinden yenileme (ders kalıbı ve JSON)
 
-| Sayfa bölümü | Parça adresi | Süre |
-| --- | --- | --- |
-| İlan detayındaki aylık müsaitlik takvimi | `/parca/takvim` | 5 sn |
-| İlan sahibinin gelen rezervasyonlar tablosu | `/parca/panel-rezervasyonlar` | 5 sn |
-| Rezervasyon durumu ve kalan bekletme süresi | `/parca/rezervasyon/{no}` | 5 sn |
-| Üst menüdeki okunmamış bildirim sayısı | `/parca/bildirim-sayaci` | 5 sn |
+| Sayfa bölümü | Adres | Yanıt | Süre |
+| --- | --- | --- | --- |
+| Rezervasyon durumu ve kalan bekletme süresi | `GET /api/rezervasyon/{no}/durum` | JSON | 5 sn |
+| İlan detayındaki aylık müsaitlik takvimi | `/parca/takvim` | HTML parça | 5 sn |
+| İlan sahibinin gelen rezervasyonlar tablosu | `/parca/panel-rezervasyonlar` | HTML parça | 5 sn |
+| Üst menüdeki okunmamış bildirim sayısı | `/parca/bildirim-sayaci` | HTML parça | 5 sn |
 
-Her parça yalnızca HTML parçası üretir, oturumu okuduktan hemen sonra `session_write_close()` çağırır ve rota yetkisinden geçer. Sayfadaki betik ders kalıbındaki gibidir: `fetch` ile parçayı alır, `innerHTML` ile yerine koyar, `setInterval` ile yineler.
+İki biçim birlikte kullanılır. Ders kalıbında (3. bölüm) parça yalnızca bölümün HTML'ini üretir; sayfadaki betik `fetch` ile alır, `innerHTML` ile yerine koyar, `setInterval` ile yineler. Aşama 2 ödevi ise kısmi yenilemenin JSON yanıtla yapılmasını ister; bunun için **rezervasyon durumu** seçildi (bekletme süresi çekirdek problemin parçasıdır). Sayfa ilk açılışta durumu sunucuda HTML olarak basar (`views/reservation/_status.php`); betik 5 saniyede bir JSON alır (`{"basarili":true,"durum","etiket","rozet","kalan_saniye","kalan_metin","bitis","mesaj","saat"}`) ve yalnızca `data-alan` işaretli öğeleri `textContent` ile günceller. Kalan süre sunucuda hesaplanır (`ReservationView::statusSummary`); tarayıcı yalnızca gelen değeri yazar. Durum sayfa açıldığından beri değiştiyse (ör. ilan sahibi onayladı) kullanıcıya sayfayı yenilemesi söylenir, çünkü işlem düğmeleri eskimiştir.
+
+Her parça ve JSON ucu oturumu okuduktan hemen sonra `session_write_close()` çağırır ve rota yetkisinden geçer (JSON ucunda müşteri, ilgili ilan sahibi veya yönetici: `ReservationService::viewFor`).
+
+**Beklenmeyen yanıtta kullanıcıya gösterilen davranış** (`views/layout.php` başındaki `bolumIstegi`, `jsonIstegi`, `bolumUyarisi`): sunucuya ulaşılamazsa, `4xx/5xx` dönerse veya JSON beklenirken başka bir yanıt gelirse bölümün başında anlaşılır bir uyarı çıkar ("Sunucuya ulaşılamadı; bağlantınızı kontrol edin…", "Bu bölümü görme yetkiniz yok…" gibi); son geçerli içerik ekranda kalır, bir sonraki başarılı yanıtta uyarı kendiliğinden kalkar. Menüdeki bildirim sayacında yer dar olduğu için açıklamalı bir uyarı işareti gösterilir. Fiyat önizlemesi (`/api/musaitlik`) ve canlı arama da aynı şekilde davranır; favori düğmesi bağlantı kopunca düğmenin altında uyarı gösterir.
 
 Oturum zaman aşımı ile ilişkisi (`src/Core/Kernel.php`):
 
-- Kendiliğinden yenileme istekleri kullanıcı işlemi sayılmaz: `/parca/` istekleri son işlem zamanını ilerletmez. Böylece açık bırakılan bir sayfa 30 dakikalık oturum zaman aşımını erteleyemez.
+- Kendiliğinden yenileme istekleri kullanıcı işlemi sayılmaz: `/parca/` ve `GET /api/` istekleri son işlem zamanını ilerletmez. Böylece açık bırakılan bir sayfa 30 dakikalık oturum zaman aşımını erteleyemez.
 - Giriş gerektiren bir parça ya da `fetch` isteği, oturum yoksa veya süresi dolduysa giriş sayfasına yönlendirilmez (giriş formu bölümün içine basılmasın); `401 Oturum gerekli.` alır. Her oturumlu sayfada çalışan bildirim sayacı betiği `401` görünce giriş sayfasına gider; uyarı mesajı orada gösterilir.
 - Parça isteğindeki diğer hatalar (`400`, `403`, `404` vb.) tam hata sayfası yerine tek satırlık uyarı parçası olarak döner (`views/errors/fragment.php`).
 
@@ -945,7 +949,7 @@ Oturum zaman aşımı ile ilişkisi (`src/Core/Kernel.php`):
 | Mimari kurallar (katman atlama yok, framework yok) | `tests/Unit/ArchitectureTest.php` |
 | SRS sayısal kararları, saat dilimi | `tests/Unit/Support/SettingsTest.php` |
 
-Tüm eşleme: [test-izlenebilirlik.md](test-izlenebilirlik.md) (`composer izlenebilirlik` ile yeniden üretilir).
+Tüm eşleme (kullanıcı hikâyeleri dahil): [izlenebilirlik.md](izlenebilirlik.md) (`composer izlenebilirlik` ile yeniden üretilir).
 ### 12.5 JSON döndüren AJAX uç noktası (etkileşim standardı)
 
 `GET /api/musaitlik?birim=2&giris=2026-11-20&cikis=2026-11-23&kisi=2` → `ApiController::availability` → `ReservationService::preview` (kural `BookingConflictService`'ten, fiyat `PricingService`'ten; rezervasyonla aynı hesap). İlan sayfası "Müsaitlik ve fiyatı gör" düğmesinde bu ucu `fetch` ile çağırır; sonuç `textContent` ile yerleştirilir (XSS'e kapalı), sayfa yenilenmez.
@@ -958,6 +962,22 @@ Tüm eşleme: [test-izlenebilirlik.md](test-izlenebilirlik.md) (`composer izlene
 | Bozuk kodlanmış (UTF-8 olmayan) girdi | `400 {"basarili":false,"hata":"..."}` |
 
 Para alanları `"1080.00"` biçiminde metin (DECIMAL) ve `"1.080,00 TL"` biçiminde gösterim metni olarak iki kez verilir; JSON'da kayan nokta kullanılmaz (BR-25).
+
+İkinci JSON ucu, kısmi yenileme için rezervasyon durumudur: `GET /api/rezervasyon/{no}/durum` (giriş gerekir; müşteri, ilgili ilan sahibi veya yönetici). Başarılıysa `200` ve bölüm 12.3'teki alanlar; oturum yoksa `401`, başkasının rezervasyonuysa `403`, numara yoksa `404`; hepsi `{"basarili":false,"hata":"..."}` biçimindedir.
+
+### 12.6 Form hataları ve POST-Redirect-GET
+
+- Başarılı her form gönderimi bir yönlendirmeyle biter (PRG) ve sonuç flash mesajla gösterilir; sayfa yenilense de işlem tekrarlanmaz. Rezervasyon formu ayrıca tek kullanımlık anahtar taşır (idempotency, FR-35).
+- Tek formlu sayfalarda (kayıt, giriş, ilan, oda, fiyat, takvim, şikâyet, yorum, profil, parola sıfırlama, rezervasyon onayı) hata olunca sayfa `422` ile, alan bazlı mesajlarla ve girilen değerlerle yeniden gösterilir. Parola alanları güvenlik nedeniyle geri basılmaz.
+- Bir sayfada çok sayıda satır içi form varsa (yönetici listeleri, ilan sahibinin ret nedeni, iptal nedeni) PRG korunur: `Controller::backWithInput` girilen değerleri ve alan hatalarını oturuma yazar (`Session::flashForm`), kullanıcıyı formun bulunduğu sayfaya (`donus`, filtre ve sayfa numarasıyla) yönlendirir; görünüm değeri ve hatayı yalnızca o satıra bir kez basar (`View::old`, `View::formErrors`).
+
+### 12.7 Testlerde sahte (bellek içi) depo ve kural bozma deneyi
+
+- Çekirdek problemin birim testleri dosyaya dokunmaz: `BookingConflictServiceTest` (çakışma) ve `PricingServiceTest` (dinamik fiyat) servisleri bellekte çalışan sahte depolarla kurar (`tests/Support/InMemory/`). Servisler yalnızca depo arayüzlerini bildiği için bu mümkündür (Repository deseni). İade (`RefundServiceTest`), durum makinesi, tarih aralığı ve para testleri zaten depo kullanmaz.
+- Sahte deponun gerçeğiyle aynı davrandığı sözleşme testiyle kanıtlanır: `ReservationRepositoryContractTest` aynı testleri hem JSON deposunda hem sahte depoda çalıştırır (yarı açık aralık, engelleyen durumlar, koşullu güncelleme, UNIQUE gece).
+- Servis ve deponun birlikte çalıştığı entegrasyon testleri her test için ayrı geçici klasörde (`sys_get_temp_dir()`) JSON deposu kurar; projenin `storage/data` dosyaları hiçbir testte açılmaz. Eşzamanlılık testleri dosya kilidini sınadıkları için bilerek gerçek (geçici) dosya kullanır.
+- Saat testlerde sabittir (`FrozenClock`, 1 Kasım 2026 10:00); süre dolumu saniyesi saniyesine sınanır.
+- Testlerin kuralı gerçekten ölçtüğü `php bin/kural-boz.php` ile gösterilir: önemli kurallar kaynak kodda geçici olarak bozulur, kırılan testler kaydedilir, dosya geri yüklenir. Sonuç: [kural-bozma-deneyi.md](kural-bozma-deneyi.md).
 
 ## 13. Aşama 3 Uygulaması (PDO + MySQL)
 

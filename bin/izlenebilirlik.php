@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /*
- * Gereksinim–test izlenebilirlik tablosunu üretir (docs/test-izlenebilirlik.md).
+ * Kullanıcı hikâyesi / gereksinim → test izlenebilirlik tablosunu üretir (docs/izlenebilirlik.md).
  *
  *   composer izlenebilirlik          -> testleri koşar, sonuç ve kapsamla birlikte tabloyu üretir
  *   php bin/izlenebilirlik.php [--sonuc=json.xml] [--sonuc-mysql=mysql.xml] [--kapsam=clover.xml] [--liste]
@@ -55,6 +55,42 @@ if (preg_match_all('/^#{2,4}\s+[\d.]+\s+Senaryo\s+(UC-\d+):\s*(.+)$/mu', $srs, $
         $requirements[$code] ??= $short($text);
     }
 }
+// Kullanıcı hikâyeleri (SRS 2.2) ve hikâye → gereksinim eşlemesi (SRS Ek B.1)
+$stories = [];
+if (preg_match_all('/^\*\*(US-\d+) \(([^)]*)\)[^*]*:\*\*/mu', $srs, $m, PREG_SET_ORDER)) {
+    foreach ($m as [, $code, $title]) {
+        $stories[$code] = ['title' => $title, 'codes' => []];
+    }
+}
+// "FR-06, 07, 08" ve "AC-11 – 15" kısaltmalarını tek tek kodlara açar.
+$expand = static function (string $cell): array {
+    $codes = [];
+    $prefix = null;
+    foreach (explode(',', $cell) as $token) {
+        $token = trim(str_replace('**', '', $token));
+        if (preg_match('/^([A-Z]+)-(\d+)(?:\s*[–-]\s*(\d+))?$/u', $token, $t) === 1) {
+            $prefix = $t[1];
+            [$from, $to] = [(int) $t[2], (int) ($t[3] ?? $t[2])];
+        } elseif ($prefix !== null && preg_match('/^(\d+)(?:\s*[–-]\s*(\d+))?$/u', $token, $t) === 1) {
+            [$from, $to] = [(int) $t[1], (int) ($t[2] ?? $t[1])];
+        } else {
+            continue;
+        }
+        for ($n = $from; $n <= $to; $n++) {
+            $codes[] = sprintf('%s-%02d', $prefix, $n);
+        }
+    }
+
+    return $codes;
+};
+if (preg_match_all('/^\|\s*\*\*(US-\d+)[^|]*\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|/mu', $srs, $m, PREG_SET_ORDER)) {
+    foreach ($m as [, $code, $fr, $uc, $ac]) {
+        if (isset($stories[$code])) {
+            $stories[$code]['codes'] = array_values(array_unique(array_merge($expand($fr), $expand($uc), $expand($ac))));
+        }
+    }
+}
+
 $categoryOf = static fn (string $code): string => explode('-', $code)[0];
 uksort($requirements, static function (string $a, string $b) use ($categories, $categoryOf): int {
     $order = array_flip(array_keys($categories));
@@ -175,9 +211,10 @@ $statusOf = static function (array $testNames, array $results): string {
 };
 
 $lines = [];
-$lines[] = '# Gereksinim–Test İzlenebilirlik Tablosu';
+$lines[] = '# İzlenebilirlik: Kullanıcı Hikâyesi ve Gereksinim → Test';
 $lines[] = '';
 $lines[] = '> Bu dosya `php bin/izlenebilirlik.php` ile **otomatik üretilir**; elle düzenlemeyin. Yeniden üretmek için: `composer izlenebilirlik`.';
+$lines[] = '> Testlerin kuralı gerçekten ölçtüğünün kanıtı (kural geçici olarak bozulunca kırılan testler): [kural-bozma-deneyi.md](kural-bozma-deneyi.md).';
 $lines[] = '> Kaynaklar: [SRS v2.3](srs.md) kodları, testlerdeki `#[Group(\'FR-18\')]` öznitelikleri ve test adlarındaki kodlar'
     . ' (ör. `testT05...`, `testCs10...`). Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group FR-18`.';
 $lines[] = '';
@@ -207,6 +244,48 @@ foreach ($categories as $prefix => $label) {
     $lines[] = sprintf('| %s (%s) | %d | %d | %%%d |', $label, $prefix, count($codes), count($covered), count($codes) > 0 ? (int) round(count($covered) * 100 / count($codes)) : 0);
 }
 $lines[] = '';
+if ($stories !== []) {
+    $lines[] = '## Kullanıcı hikâyeleri → gereksinim → test';
+    $lines[] = '';
+    $lines[] = 'Hikâye → gereksinim eşlemesi [SRS Ek B.1](srs.md) tablosundan okunur; bir hikâyenin testleri,'
+        . ' bağlı olduğu gereksinim, senaryo ve kabul kriterlerini doğrulayan testlerdir.';
+    $lines[] = '';
+    $header = '| Hikâye | Bağlı kodlar | Otomatik testi olan kod | Test |';
+    $rule = '| --- | --- | ---: | ---: |';
+    foreach (array_keys($resultSets) as $driver) {
+        $header .= ' ' . $driver . ' |';
+        $rule .= ' --- |';
+    }
+    $lines[] = $header;
+    $lines[] = $rule;
+    $storyTests = [];
+    foreach ($stories as $code => $story) {
+        $names = [];
+        foreach ($story['codes'] as $linked) {
+            foreach ($byCode[$linked] ?? [] as $test) {
+                $names[$test] = true;
+            }
+        }
+        $names = array_keys($names);
+        sort($names);
+        $storyTests[$code] = $names;
+        $withTests = count(array_filter($story['codes'], static fn (string $c): bool => isset($byCode[$c])));
+        $row = sprintf('| **%s** %s | %s | %d / %d | %d |', $code, $story['title'], implode(', ', $story['codes']), $withTests, count($story['codes']), count($names));
+        foreach ($resultSets as $results) {
+            $row .= ' ' . ($names === [] ? '—' : $statusOf($names, $results)) . ' |';
+        }
+        $lines[] = $row;
+    }
+    $lines[] = '';
+    foreach ($stories as $code => $story) {
+        $lines[] = '<details><summary>' . $code . ' (' . $story['title'] . '): ' . count($storyTests[$code]) . ' test</summary>';
+        $lines[] = '';
+        $lines[] = implode(', ', array_map(static fn (string $t): string => '`' . $t . '`', $storyTests[$code]));
+        $lines[] = '';
+        $lines[] = '</details>';
+        $lines[] = '';
+    }
+}
 if ($coverage !== []) {
     $lines[] = '## NFR-16: Çekirdek servislerin satır kapsamı';
     $lines[] = '';
@@ -260,7 +339,7 @@ if ($untagged !== []) {
     $lines[] = '';
 }
 
-file_put_contents($root . '/docs/test-izlenebilirlik.md', implode("\n", $lines));
+file_put_contents($root . '/docs/izlenebilirlik.md', implode("\n", $lines));
 if (!empty($options['json'])) {
     $export = [];
     foreach ($requirements as $code => $text) {
@@ -270,4 +349,4 @@ if (!empty($options['json'])) {
     }
     file_put_contents((string) $options['json'], json_encode($export, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
-printf("docs/test-izlenebilirlik.md üretildi: %d gereksinim, %d test.\n", count($requirements), $totalTests);
+printf("docs/izlenebilirlik.md üretildi: %d kullanıcı hikâyesi, %d gereksinim, %d test.\n", count($stories), count($requirements), $totalTests);
