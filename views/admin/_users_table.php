@@ -24,13 +24,16 @@ use App\Model\Role;
                     <?php if ($u->role !== Role::Yonetici): ?>
                         <form method="post" action="<?= e($view->url('/yonetim/kullanici/' . $u->id . '/durum')) ?>" class="input-group input-group-sm">
                             <?= $view->csrfField() ?>
+                            <input type="hidden" name="donus" value="<?= e($currentUrl ?? '') ?>">
+                            <?php $form = 'kullanici-' . $u->id; $hatalar = $view->formErrors($form); $durum = $view->old($form, 'durum', $u->status->value); ?>
                             <select name="durum" class="form-select" aria-label="Yeni durum">
-                                <option value="aktif"<?= $view->selected($u->status->value, 'aktif') ?>>Aktif</option>
-                                <option value="kisitli"<?= $view->selected($u->status->value, 'kisitli') ?>>Kısıtlı</option>
+                                <option value="aktif"<?= $view->selected($durum, 'aktif') ?>>Aktif</option>
+                                <option value="kisitli"<?= $view->selected($durum, 'kisitli') ?>>Kısıtlı</option>
                             </select>
-                            <input type="text" name="neden" class="form-control" placeholder="Neden" required minlength="5" aria-label="Neden">
+                            <input type="text" name="neden" class="form-control<?= $view->invalid($hatalar, 'neden') ?>" value="<?= e($view->old($form, 'neden')) ?>" placeholder="Neden" required minlength="5" aria-label="Neden">
                             <button type="submit" class="btn btn-outline-secondary">Kaydet</button>
                         </form>
+                        <?= $view->error($hatalar, 'neden') ?>
                     <?php else: ?>
                         <span class="small text-body-secondary">—</span>
                     <?php endif; ?>

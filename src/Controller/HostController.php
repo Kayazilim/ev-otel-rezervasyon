@@ -344,10 +344,10 @@ final class HostController extends Controller
             $this->reservations->reject($no, $this->userId(), $request->input('neden'));
             $this->flash('success', $no . ' reddedildi; geceler serbest bırakıldı.');
         } catch (ValidationException $e) {
-            $this->flash('danger', $e->getMessage());
+            return $this->backWithInput($request, 'ret-' . $no, $e, '/panel/rezervasyonlar');
         }
 
-        return $this->redirect($this->safePath($request->input('donus'), '/panel/rezervasyonlar'));
+        return $this->redirect($this->returnPath($request, '/panel/rezervasyonlar'));
     }
 
     /** FR-30: yalnızca kendi ilanlarının doluluk ve gelir raporu; bonus: CSV. */

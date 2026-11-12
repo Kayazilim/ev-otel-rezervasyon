@@ -19,12 +19,12 @@
                     <div class="row g-2">
                         <div class="col-6">
                             <label for="ad" class="form-label">Ad</label>
-                            <input type="text" class="form-control<?= $view->invalid($errors, 'ad') ?>" id="ad" name="ad" value="<?= e($currentUser->firstName) ?>" required>
+                            <input type="text" class="form-control<?= $view->invalid($errors, 'ad') ?>" id="ad" name="ad" value="<?= e($old['ad'] ?? $currentUser->firstName) ?>" required>
                             <?= $view->error($errors, 'ad') ?>
                         </div>
                         <div class="col-6">
                             <label for="soyad" class="form-label">Soyad</label>
-                            <input type="text" class="form-control<?= $view->invalid($errors, 'soyad') ?>" id="soyad" name="soyad" value="<?= e($currentUser->lastName) ?>" required>
+                            <input type="text" class="form-control<?= $view->invalid($errors, 'soyad') ?>" id="soyad" name="soyad" value="<?= e($old['soyad'] ?? $currentUser->lastName) ?>" required>
                             <?= $view->error($errors, 'soyad') ?>
                         </div>
                         <div class="col-12">

@@ -32,9 +32,12 @@
                     <?php if ($p->status->value !== 'kaldirildi'): ?>
                         <form method="post" action="<?= e($view->url('/yonetim/ilan/' . $p->id . '/kaldir')) ?>" class="input-group input-group-sm" onsubmit="return confirm('İlan kaldırılsın mı? Gelecekteki rezervasyonları iptal edilip tamamı iade edilir.')">
                             <?= $view->csrfField() ?>
-                            <input type="text" name="neden" class="form-control" placeholder="Kaldırma nedeni" required minlength="5" aria-label="Kaldırma nedeni">
+                            <input type="hidden" name="donus" value="<?= e($currentUrl ?? '') ?>">
+                            <?php $form = 'ilan-' . $p->id; $hatalar = $view->formErrors($form); ?>
+                            <input type="text" name="neden" class="form-control<?= $view->invalid($hatalar, 'neden') ?>" value="<?= e($view->old($form, 'neden')) ?>" placeholder="Kaldırma nedeni" required minlength="5" aria-label="Kaldırma nedeni">
                             <button type="submit" class="btn btn-outline-danger">Kaldır</button>
                         </form>
+                        <?= $view->error($hatalar, 'neden') ?>
                     <?php else: ?>
                         <span class="small text-body-secondary">Kaldırıldı</span>
                     <?php endif; ?>

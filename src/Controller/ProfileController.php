@@ -42,7 +42,12 @@ final class ProfileController extends Controller
         try {
             $this->users->updateProfile($this->userId(), $request->input('ad'), $request->input('soyad'));
         } catch (ValidationException $e) {
-            return $this->render('profile/edit', ['title' => 'Profilim', 'errors' => $e->errors(), 'passwordErrors' => []], 422);
+            return $this->render('profile/edit', [
+                'title' => 'Profilim',
+                'errors' => $e->errors(),
+                'passwordErrors' => [],
+                'old' => ['ad' => $request->input('ad'), 'soyad' => $request->input('soyad')],
+            ], 422);
         }
         $this->flash('success', 'Profil bilgileriniz güncellendi.');
 

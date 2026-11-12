@@ -26,8 +26,10 @@
         <p class="my-2"><?= e($r->comment) ?></p>
         <form method="post" action="<?= e($view->url('/yonetim/yorum/' . $r->id)) ?>" class="row g-2">
             <?= $view->csrfField() ?>
-            <div class="col-12 col-md-3"><select name="durum" class="form-select form-select-sm" aria-label="Denetim durumu"><?php foreach ($statuses as $value => $label): ?><option value="<?= e($value) ?>"<?= $view->selected($r->moderationStatus->value, $value) ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
-            <div class="col-12 col-md-7"><input type="text" name="neden" class="form-control form-control-sm" placeholder="Neden (zorunlu)" required minlength="5" aria-label="Neden"></div>
+            <input type="hidden" name="donus" value="<?= e($currentUrl ?? '') ?>">
+            <?php $form = 'yorum-' . $r->id; $hatalar = $view->formErrors($form); ?>
+            <div class="col-12 col-md-3"><select name="durum" class="form-select form-select-sm" aria-label="Denetim durumu"><?php foreach ($statuses as $value => $label): ?><option value="<?= e($value) ?>"<?= $view->selected($view->old($form, 'durum', $r->moderationStatus->value), $value) ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+            <div class="col-12 col-md-7"><input type="text" name="neden" class="form-control form-control-sm<?= $view->invalid($hatalar, 'neden') ?>" value="<?= e($view->old($form, 'neden')) ?>" placeholder="Neden (zorunlu)" required minlength="5" aria-label="Neden"><?= $view->error($hatalar, 'neden') ?></div>
             <div class="col-12 col-md-2"><button type="submit" class="btn btn-outline-success btn-sm w-100">Kaydet</button></div>
         </form>
     </div></div>

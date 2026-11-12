@@ -29,7 +29,7 @@
                     <?= $view->csrfField() ?>
                     <div class="mb-3">
                         <label for="eposta" class="form-label fw-semibold">E-posta</label>
-                        <input type="email" class="form-control<?= $view->invalid($errors, 'eposta') ?>" id="eposta" name="eposta" required>
+                        <input type="email" class="form-control<?= $view->invalid($errors, 'eposta') ?>" id="eposta" name="eposta" value="<?= e($old['eposta'] ?? '') ?>" required>
                         <?= $view->error($errors, 'eposta') ?>
                     </div>
                     <button type="submit" class="btn btn-success w-100">Bağlantı gönder</button>

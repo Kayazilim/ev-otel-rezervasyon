@@ -103,9 +103,11 @@ $isHost = $currentUser->id === $r->property->ownerId;
                         <?= $view->csrfField() ?>
                         <input type="hidden" name="donus" value="/rezervasyon/<?= e($res->number) ?>">
                         <div class="input-group">
-                            <input type="text" class="form-control" name="neden" placeholder="Ret nedeni" required minlength="3" aria-label="Ret nedeni">
+                            <?php $retHatalari = $view->formErrors('ret-' . $res->number); ?>
+                            <input type="text" class="form-control<?= $view->invalid($retHatalari, 'neden') ?>" name="neden" value="<?= e($view->old('ret-' . $res->number, 'neden')) ?>" placeholder="Ret nedeni" required minlength="3" aria-label="Ret nedeni">
                             <button type="submit" class="btn btn-outline-danger">Reddet</button>
                         </div>
+                        <?= $view->error($retHatalari, 'neden') ?>
                     </form>
                 </div>
             </div>

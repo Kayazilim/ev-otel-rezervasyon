@@ -174,7 +174,8 @@ final class ReservationController extends Controller
             $this->reservations->cancelByCustomer($no, $this->userId(), $request->input('neden'));
             $this->flash('success', 'Rezervasyonunuz iptal edildi; geceler yeniden müsait.');
         } catch (ValidationException $e) {
-            $this->flash('danger', $e->getMessage());
+            // İptal formuna dönülür; yazılan neden korunur.
+            return $this->backWithInput($request, 'iptal', $e, '/rezervasyon/' . $no . '/iptal');
         }
 
         return $this->redirect('/rezervasyon/' . $no);

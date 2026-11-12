@@ -69,6 +69,7 @@ final class Kernel
             $view->share('csrfToken', $this->container->csrf()->token());
             $view->share('currentUser', $auth->user());
             $view->share('currentPath', $request->path);
+            $view->share('currentUrl', $request->fullPath()); // satır içi formların dönüş adresi (donus)
             $view->share('appName', $this->container->settings->appName);
             // FR-04: e-posta modu ve (yalnızca bu bilgisayardan) simüle posta kutusu bağlantısı
             $view->share('mailMode', $this->container->settings->mailDriver);

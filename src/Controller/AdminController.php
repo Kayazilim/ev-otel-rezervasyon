@@ -101,10 +101,10 @@ final class AdminController extends Controller
             $this->users->setStatus($this->userId(), (int) $id, $status, $request->input('neden'));
             $this->flash('success', 'Hesap durumu güncellendi.');
         } catch (ValidationException $e) {
-            $this->flash('danger', $e->getMessage());
+            return $this->backWithInput($request, 'kullanici-' . $id, $e, '/yonetim/kullanicilar');
         }
 
-        return $this->redirect('/yonetim/kullanicilar');
+        return $this->redirect($this->returnPath($request, '/yonetim/kullanicilar'));
     }
 
     public function properties(Request $request): Response
@@ -132,10 +132,10 @@ final class AdminController extends Controller
             $count = $this->properties->removeByAdmin($this->userId(), (int) $id, $request->input('neden'));
             $this->flash('success', sprintf('İlan kaldırıldı. %d gelecek rezervasyon iptal edildi ve ödenen tutarların tamamı iade edildi.', $count));
         } catch (ValidationException $e) {
-            $this->flash('danger', $e->getMessage());
+            return $this->backWithInput($request, 'ilan-' . $id, $e, '/yonetim/ilanlar');
         }
 
-        return $this->redirect('/yonetim/ilanlar');
+        return $this->redirect($this->returnPath($request, '/yonetim/ilanlar'));
     }
 
     public function complaints(Request $request): Response
@@ -160,10 +160,10 @@ final class AdminController extends Controller
             $this->complaints->update($this->userId(), (int) $id, $status, $request->input('not'));
             $this->flash('success', 'Şikâyet güncellendi.');
         } catch (ValidationException $e) {
-            $this->flash('danger', $e->getMessage());
+            return $this->backWithInput($request, 'sikayet-' . $id, $e, '/yonetim/sikayetler');
         }
 
-        return $this->redirect('/yonetim/sikayetler');
+        return $this->redirect($this->returnPath($request, '/yonetim/sikayetler'));
     }
 
     public function reviews(Request $request): Response
@@ -188,10 +188,10 @@ final class AdminController extends Controller
             $this->reviews->moderate($this->userId(), (int) $id, $status, $request->input('neden'));
             $this->flash('success', 'Yorum denetimi kaydedildi.');
         } catch (ValidationException $e) {
-            $this->flash('danger', $e->getMessage());
+            return $this->backWithInput($request, 'yorum-' . $id, $e, '/yonetim/yorumlar');
         }
 
-        return $this->redirect('/yonetim/yorumlar');
+        return $this->redirect($this->returnPath($request, '/yonetim/yorumlar'));
     }
 
     /** FR-30: tüm ilanların doluluk ve gelir raporu; bonus: CSV. */

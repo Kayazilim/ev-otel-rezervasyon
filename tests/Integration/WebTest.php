@@ -502,4 +502,75 @@ final class WebTest extends AppTestCase
             self::assertSame($booked->nights(), $this->range($alternative['giris'], $alternative['cikis'])->nights(), 'Aynı uzunlukta');
         }
     }
+
+    /**
+     * Ödev 1. bölüm: formda hata olunca anlaşılır mesaj gösterilir ve daha önce girilen geçerli değerler korunur.
+     * Tek formlu sayfalar 422 ile girilen değerlerle yeniden gösterilir.
+     */
+    #[Group('NFR-06')]
+    public function testFormErrorsKeepTheValuesTheUserTyped(): void
+    {
+        $forgot = $this->post('/parola-sifirla', ['eposta' => 'adres-degil']);
+        self::assertSame(422, $forgot->status);
+        self::assertStringContainsString('value="adres-degil"', $forgot->body);
+        self::assertStringContainsString('Geçerli bir e-posta adresi girin.', $forgot->body);
+
+        $this->loginAs('ali@evotel.test');
+        $profile = $this->post('/profil', ['ad' => 'Yeniad', 'soyad' => '']);
+        self::assertSame(422, $profile->status);
+        self::assertStringContainsString('value="Yeniad"', $profile->body, 'Geçerli girilen ad korunur');
+    }
+
+    /**
+     * Satır içi formlar (yönetici listeleri, ret ve iptal nedeni): hata olunca POST-Redirect-GET bozulmaz.
+     * Yanıt yönlendirmedir; formun bulunduğu sayfada girilen değer ve alan hatası gösterilir. Sayfa yenilenince
+     * işlem tekrarlanmaz ve eski değer kaybolur (tek seferlik).
+     */
+    #[Group('NFR-06')]
+    #[Group('BR-10')]
+    public function testInlineFormErrorRedirectsBackKeepingTheTypedValue(): void
+    {
+        $this->loginAs('yonetici@evotel.test');
+        $customer = $this->c->users()->findByEmail('can@evotel.test');
+        self::assertNotNull($customer);
+        $back = '/yonetim/kullanicilar?q=can';
+
+        $response = $this->post('/yonetim/kullanici/' . $customer->id . '/durum', ['durum' => 'kisitli', 'neden' => 'kısa', 'donus' => $back]);
+
+        self::assertSame(303, $response->status, 'Hatada da yönlendirme (PRG)');
+        self::assertStringEndsWith($back, $response->headers['Location']);
+        $page = $this->get('/yonetim/kullanicilar', ['q' => 'can'])->body;
+        self::assertStringContainsString('value="kısa"', $page, 'Girilen neden korunur');
+        self::assertStringContainsString('Neden 5-500 karakter olmalıdır.', $page);
+        self::assertStringContainsString('is-invalid', $page);
+        self::assertSame(\App\Model\UserStatus::Aktif, $this->c->users()->findById((int) $customer->id)?->status, 'Kayıt değişmez');
+
+        $again = $this->get('/yonetim/kullanicilar', ['q' => 'can'])->body;
+        self::assertStringNotContainsString('value="kısa"', $again, 'Değer yalnızca bir kez gösterilir');
+
+        $fragmentBack = $this->post('/yonetim/kullanici/' . $customer->id . '/durum', ['durum' => 'kisitli', 'neden' => 'kısa', 'donus' => '/parca/kullanicilar?q=can']);
+        self::assertStringEndsWith('/yonetim/kullanicilar', $fragmentBack->headers['Location'], 'Parça adresi dönüş adresi olamaz');
+    }
+
+    /** İptal nedeni hatalıysa iptal formuna dönülür ve yazılan neden korunur; rezervasyon iptal edilmez. */
+    #[Group('NFR-06')]
+    #[Group('FR-17')]
+    public function testCancelFormKeepsTheReasonOnError(): void
+    {
+        $guest = $this->c->users()->findByEmail('ali@evotel.test');
+        self::assertNotNull($guest);
+        $unit = $this->c->units()->all()[0];
+        $reservation = $this->bookAndPay((int) $guest->id, $unit, '2027-09-14', '2027-09-16');
+        $this->loginAs('ali@evotel.test');
+        $reason = str_repeat('a', 501);
+
+        $response = $this->post('/rezervasyon/' . $reservation->number . '/iptal', ['neden' => $reason]);
+
+        self::assertSame(303, $response->status);
+        self::assertStringEndsWith('/rezervasyon/' . $reservation->number . '/iptal', $response->headers['Location']);
+        $page = $this->get('/rezervasyon/' . $reservation->number . '/iptal')->body;
+        self::assertStringContainsString('value="' . $reason . '"', $page);
+        self::assertStringContainsString('İptal nedeni en çok 500 karakter olabilir.', $page);
+        self::assertSame(\App\Model\ReservationStatus::Onaylandi, $this->c->reservations()->findByNumber($reservation->number)?->status);
+    }
 }
