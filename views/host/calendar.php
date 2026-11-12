@@ -51,8 +51,11 @@ $first = new DateTimeImmutable($month . '-01');
                             <div id="panel-takvim"><?= $view->partial('property/_calendar', ['calendar' => $calendar, 'showPrices' => true]) ?></div>
                             <script>
                             async function panelTakvimYenile() {
-                                const yanit = await fetch('<?= e($view->url('/parca/takvim', ['birim' => $unitId, 'ay' => $month, 'fiyat' => '1'])) ?>');
-                                document.getElementById('panel-takvim').innerHTML = await yanit.text();
+                                const kutu = document.getElementById('panel-takvim');
+                                const yanit = await bolumIstegi('<?= e($view->url('/parca/takvim', ['birim' => $unitId, 'ay' => $month, 'fiyat' => '1'])) ?>', kutu);
+                                if (yanit !== null) {
+                                    kutu.innerHTML = await yanit.text();
+                                }
                             }
                             panelTakvimYenile();
                             setInterval(panelTakvimYenile, 5000);
@@ -96,11 +99,14 @@ $first = new DateTimeImmutable($month . '-01');
 
             <div class="card shadow-sm mt-3"><div class="card-body">
                 <h2 class="h6 fw-bold">Gelen rezervasyonlar</h2>
-                <div id="takvim-rezervasyonlar">Yükleniyor...</div>
+                <div id="takvim-rezervasyonlar"><span class="yukleniyor">Yükleniyor...</span></div>
                 <script>
                 async function takvimRezervasyonYenile() {
-                    const yanit = await fetch('<?= e($view->url('/parca/panel-rezervasyonlar', ['kisa' => '1'])) ?>');
-                    document.getElementById('takvim-rezervasyonlar').innerHTML = await yanit.text();
+                    const kutu = document.getElementById('takvim-rezervasyonlar');
+                    const yanit = await bolumIstegi('<?= e($view->url('/parca/panel-rezervasyonlar', ['kisa' => '1'])) ?>', kutu);
+                    if (yanit !== null) {
+                        kutu.innerHTML = await yanit.text();
+                    }
                 }
                 takvimRezervasyonYenile();
                 setInterval(takvimRezervasyonYenile, 5000);

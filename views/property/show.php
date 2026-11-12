@@ -110,11 +110,14 @@ $maxBar = max(1, ...array_values($detail->ratingDistribution));
                     </span>
                 </div>
                 <!-- Kısmi yenileme: takvim bölümü 5 saniyede bir PHP'den yeniden alınır -->
-                <div id="takvim-bolumu" class="panel p-3">Yükleniyor...</div>
+                <div id="takvim-bolumu" class="panel p-3"><span class="yukleniyor">Yükleniyor...</span></div>
                 <script>
                 async function takvimYenile() {
-                    const yanit = await fetch('<?= e($view->url('/parca/takvim', ['birim' => $selectedUnit->id, 'ay' => $ay])) ?>');
-                    document.getElementById('takvim-bolumu').innerHTML = await yanit.text();
+                    const kutu = document.getElementById('takvim-bolumu');
+                    const yanit = await bolumIstegi('<?= e($view->url('/parca/takvim', ['birim' => $selectedUnit->id, 'ay' => $ay])) ?>', kutu);
+                    if (yanit !== null) {
+                        kutu.innerHTML = await yanit.text();
+                    }
                 }
                 takvimYenile();
                 setInterval(takvimYenile, 5000);
@@ -240,9 +243,25 @@ $maxBar = max(1, ...array_values($detail->ratingDistribution));
                 async function fiyatGetir() {
                     const alan = document.getElementById('fiyat-onizleme');
                     const parametreler = new URLSearchParams(new FormData(document.getElementById('rezervasyon-formu')));
-                    const yanit = await fetch('<?= e($view->url('/api/musaitlik')) ?>?' + parametreler.toString(), {headers: {'Accept': 'application/json'}});
-                    const veri = await yanit.json();
+                    let yanit;
+                    let veri = null;
+                    try {
+                        yanit = await fetch('<?= e($view->url('/api/musaitlik')) ?>?' + parametreler.toString(), {headers: {'Accept': 'application/json'}});
+                    } catch (hata) {
+                        alan.replaceChildren(oge('div', 'alert alert-warning py-2 mb-0', 'Sunucuya ulaşılamadı; bağlantınızı kontrol edip tekrar deneyin.'));
+                        return;
+                    }
+                    try {
+                        veri = await yanit.json();
+                    } catch (hata) {
+                        veri = null;
+                    }
                     alan.replaceChildren();
+                    if (veri === null || typeof veri !== 'object') {
+                        // JSON olmayan beklenmeyen yanıt (ör. sunucu hatası sayfası): teknik ayrıntı gösterilmez.
+                        alan.append(oge('div', 'alert alert-warning py-2 mb-0', 'Fiyat bilgisi alınamadı (HTTP ' + yanit.status + '). Lütfen biraz sonra tekrar deneyin.'));
+                        return;
+                    }
                     if (!veri.basarili) {
                         const kutu = oge('div', 'alert alert-warning py-2 mb-0');
                         Object.values(veri.hatalar || {hata: veri.hata}).forEach(m => kutu.append(oge('div', '', m)));

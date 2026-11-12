@@ -12,6 +12,7 @@ final class Session
 {
     private const FLASH = '_flash';
     private const LAST_ACTIVITY = '_last_activity';
+    private const FORM = '_form';
 
     public function __construct(private readonly int $timeoutMinutes = 30)
     {
@@ -95,6 +96,40 @@ final class Session
         $list = is_array($list) ? $list : [];
         $list[] = ['type' => $type, 'message' => $message];
         $this->set(self::FLASH, $list);
+    }
+
+    /**
+     * Hatalı formun girilen değerleri ve alan hataları, yönlendirmeden sonraki ilk sayfada gösterilmek üzere
+     * saklanır. Böylece POST-Redirect-GET bozulmadan "girilen geçerli değerler korunur" şartı karşılanır.
+     *
+     * @param array<string, string> $old
+     * @param array<string, string> $errors
+     */
+    public function flashForm(string $key, array $old, array $errors): void
+    {
+        $this->set(self::FORM, ['key' => $key, 'old' => $old, 'errors' => $errors]);
+    }
+
+    /** @return array{key: string, old: array<string, string>, errors: array<string, string>}|null */
+    public function takeForm(): ?array
+    {
+        $form = $this->get(self::FORM);
+        $this->remove(self::FORM);
+        if (!is_array($form) || !is_string($form['key'] ?? null)) {
+            return null;
+        }
+        $strings = static function (mixed $list): array {
+            $result = [];
+            foreach (is_array($list) ? $list : [] as $name => $value) {
+                if (is_string($name) && is_string($value)) {
+                    $result[$name] = $value;
+                }
+            }
+
+            return $result;
+        };
+
+        return ['key' => $form['key'], 'old' => $strings($form['old'] ?? null), 'errors' => $strings($form['errors'] ?? null)];
     }
 
     /** @return list<array{type: string, message: string}> */

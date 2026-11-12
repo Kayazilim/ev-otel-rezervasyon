@@ -98,14 +98,18 @@ final class AuthController extends Controller
 
     public function showForgot(Request $request): Response
     {
-        return $this->render('auth/forgot', ['title' => 'Parola sıfırlama', 'errors' => []]);
+        return $this->render('auth/forgot', ['title' => 'Parola sıfırlama', 'errors' => [], 'old' => []]);
     }
 
     public function forgot(Request $request): Response
     {
         $email = trim($request->input('eposta'));
         if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            return $this->render('auth/forgot', ['title' => 'Parola sıfırlama', 'errors' => ['eposta' => 'Geçerli bir e-posta adresi girin.']], 422);
+            return $this->render('auth/forgot', [
+                'title' => 'Parola sıfırlama',
+                'errors' => ['eposta' => 'Geçerli bir e-posta adresi girin.'],
+                'old' => ['eposta' => $request->input('eposta')],
+            ], 422);
         }
         $base = ($request->isHttps() ? 'https://' : 'http://') . $request->header('Host');
         $this->authService->requestPasswordReset($email, fn (string $token): string => $base . $this->view->url('/parola-sifirla/' . $token));

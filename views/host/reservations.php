@@ -23,8 +23,11 @@ use App\Model\ReservationStatus;
             <div id="rezervasyon-tablosu"><?= $view->partial('host/_reservations_table', ['list' => $list, 'compact' => false]) ?></div>
             <script>
             async function tabloYenile() {
-                const yanit = await fetch('<?= e($view->url('/parca/panel-rezervasyonlar', ['durum' => $status])) ?>');
-                document.getElementById('rezervasyon-tablosu').innerHTML = await yanit.text();
+                const kutu = document.getElementById('rezervasyon-tablosu');
+                const yanit = await bolumIstegi('<?= e($view->url('/parca/panel-rezervasyonlar', ['durum' => $status])) ?>', kutu);
+                if (yanit !== null) {
+                    kutu.innerHTML = await yanit.text();
+                }
             }
             tabloYenile();
             setInterval(tabloYenile, 5000);

@@ -37,11 +37,14 @@
             <div class="card-body">
                 <h2 class="h6 fw-bold">Gelen rezervasyonlar</h2>
                 <!-- Kısmi yenileme: tablo 5 saniyede bir yenilenir; yeni talep sayfa yenilenmeden görünür -->
-                <div id="gelen-rezervasyonlar">Yükleniyor...</div>
+                <div id="gelen-rezervasyonlar"><span class="yukleniyor">Yükleniyor...</span></div>
                 <script>
                 async function gelenYenile() {
-                    const yanit = await fetch('<?= e($view->url('/parca/panel-rezervasyonlar', ['kisa' => '1'])) ?>');
-                    document.getElementById('gelen-rezervasyonlar').innerHTML = await yanit.text();
+                    const kutu = document.getElementById('gelen-rezervasyonlar');
+                    const yanit = await bolumIstegi('<?= e($view->url('/parca/panel-rezervasyonlar', ['kisa' => '1'])) ?>', kutu);
+                    if (yanit !== null) {
+                        kutu.innerHTML = await yanit.text();
+                    }
                 }
                 gelenYenile();
                 setInterval(gelenYenile, 5000);

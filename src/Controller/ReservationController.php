@@ -131,16 +131,24 @@ final class ReservationController extends Controller
     {
         $view = $this->reservations->viewFor($no, $this->user());
 
-        return $this->render('reservation/show', ['title' => 'Rezervasyon ' . $no, 'r' => $view]);
+        return $this->render('reservation/show', [
+            'title' => 'Rezervasyon ' . $no,
+            'r' => $view,
+            'durum' => $view->statusSummary($this->clock->now()),
+        ]);
     }
 
-    /** Kısmi yenileme: rezervasyon durumu ve kalan bekletme süresi (ilan sahibi onaylayınca kendiliğinden güncellenir). */
-    public function statusFragment(Request $request, string $no): Response
+    /**
+     * Kısmi yenileme (JSON): rezervasyon durumu ve kalan bekletme süresi. Rezervasyon sayfası bunu 5 saniyede
+     * bir ister; ilan sahibi onaylayınca veya süre dolunca sayfa yenilenmeden değişir. Yetki: müşteri, ilgili
+     * ilan sahibi veya yönetici (viewFor). Hatalar /api/ altında JSON döner (Kernel).
+     */
+    public function statusJson(Request $request, string $no): Response
     {
         $user = $this->user();
-        $this->session->close();
+        $this->session->close(); // oturum okundu; aynı oturumdaki diğer istekler beklemesin
 
-        return $this->fragment('reservation/_status', ['r' => $this->reservations->viewFor($no, $user), 'now' => $this->clock->now()]);
+        return Response::json(['basarili' => true] + $this->reservations->viewFor($no, $user)->statusSummary($this->clock->now()));
     }
 
     public function pay(Request $request, string $no): Response
@@ -174,7 +182,8 @@ final class ReservationController extends Controller
             $this->reservations->cancelByCustomer($no, $this->userId(), $request->input('neden'));
             $this->flash('success', 'Rezervasyonunuz iptal edildi; geceler yeniden müsait.');
         } catch (ValidationException $e) {
-            $this->flash('danger', $e->getMessage());
+            // İptal formuna dönülür; yazılan neden korunur.
+            return $this->backWithInput($request, 'iptal', $e, '/rezervasyon/' . $no . '/iptal');
         }
 
         return $this->redirect('/rezervasyon/' . $no);

@@ -502,4 +502,139 @@ final class WebTest extends AppTestCase
             self::assertSame($booked->nights(), $this->range($alternative['giris'], $alternative['cikis'])->nights(), 'Aynı uzunlukta');
         }
     }
+
+    private function customerReservationNumber(string $email): string
+    {
+        $user = $this->c->users()->findByEmail($email);
+        self::assertNotNull($user);
+        $list = $this->c->reservations()->findByCustomer((int) $user->id);
+        self::assertNotEmpty($list, 'Örnek veride müşterinin rezervasyonu var');
+
+        return $list[0]->number;
+    }
+
+    /**
+     * Kısmi yenileme (ödev 5. bölüm): rezervasyon durumu JSON olarak alınır. Yalnızca müşterisi, ilgili ilan
+     * sahibi ve yönetici görebilir; hata durumları da JSON döner ki sayfa anlaşılır bir uyarı gösterebilsin.
+     * Bu istekler kullanıcı işlemi sayılmaz (oturum zaman aşımını ertelemez).
+     */
+    #[Group('FR-32')]
+    #[Group('FR-34')]
+    #[Group('NFR-03')]
+    #[Group('NFR-15')]
+    public function testReservationStatusIsServedAsJsonToAllowedUsersOnly(): void
+    {
+        $number = $this->customerReservationNumber('ali@evotel.test');
+        $path = '/api/rezervasyon/' . $number . '/durum';
+
+        self::assertSame(401, $this->get($path)->status, 'Oturum yoksa 401');
+        self::assertFalse($this->json($this->get($path))['basarili']);
+
+        $this->loginAs('ali@evotel.test');
+        $before = $_SESSION['_last_activity'];
+        $this->clock->advance('+5 minutes');
+        $data = $this->json($this->get($path));
+        self::assertTrue($data['basarili']);
+        foreach (['durum', 'etiket', 'rozet', 'kalan_saniye', 'kalan_metin', 'bitis', 'mesaj', 'saat'] as $key) {
+            self::assertArrayHasKey($key, $data);
+        }
+        self::assertSame($before, $_SESSION['_last_activity'], 'Kendiliğinden yenilenen JSON isteği oturum süresini uzatmaz');
+
+        $missing = $this->get('/api/rezervasyon/RZ-YOK-000000/durum');
+        self::assertSame(404, $missing->status);
+        self::assertFalse($this->json($missing)['basarili']);
+
+        $this->loginAs('can@evotel.test');
+        $other = $this->get($path);
+        self::assertSame(403, $other->status, 'Başka müşterinin rezervasyonu görülemez');
+        self::assertFalse($this->json($other)['basarili']);
+        self::assertStringNotContainsString($number, (string) $this->json($other)['hata']);
+    }
+
+    /** Rezervasyon sayfası durum bölümünü ilk açılışta HTML olarak basar, sonra JSON ucunu çağırır. */
+    #[Group('FR-32')]
+    public function testReservationPageRendersStatusAndPollsTheJsonEndpoint(): void
+    {
+        $number = $this->customerReservationNumber('ali@evotel.test');
+        $this->loginAs('ali@evotel.test');
+
+        $html = $this->get('/rezervasyon/' . $number)->body;
+
+        self::assertStringContainsString('id="durum-bolumu"', $html);
+        self::assertStringContainsString('data-alan="etiket"', $html);
+        self::assertStringContainsString('/api/rezervasyon/' . $number . '/durum', $html);
+        self::assertStringContainsString('jsonIstegi(', $html);
+        self::assertStringNotContainsString('Yükleniyor...</div>', $html, 'İlk durum sunucuda basılır');
+    }
+
+    /**
+     * Ödev 1. bölüm: formda hata olunca anlaşılır mesaj gösterilir ve daha önce girilen geçerli değerler korunur.
+     * Tek formlu sayfalar 422 ile girilen değerlerle yeniden gösterilir.
+     */
+    #[Group('NFR-06')]
+    public function testFormErrorsKeepTheValuesTheUserTyped(): void
+    {
+        $forgot = $this->post('/parola-sifirla', ['eposta' => 'adres-degil']);
+        self::assertSame(422, $forgot->status);
+        self::assertStringContainsString('value="adres-degil"', $forgot->body);
+        self::assertStringContainsString('Geçerli bir e-posta adresi girin.', $forgot->body);
+
+        $this->loginAs('ali@evotel.test');
+        $profile = $this->post('/profil', ['ad' => 'Yeniad', 'soyad' => '']);
+        self::assertSame(422, $profile->status);
+        self::assertStringContainsString('value="Yeniad"', $profile->body, 'Geçerli girilen ad korunur');
+    }
+
+    /**
+     * Satır içi formlar (yönetici listeleri, ret ve iptal nedeni): hata olunca POST-Redirect-GET bozulmaz.
+     * Yanıt yönlendirmedir; formun bulunduğu sayfada girilen değer ve alan hatası gösterilir. Sayfa yenilenince
+     * işlem tekrarlanmaz ve eski değer kaybolur (tek seferlik).
+     */
+    #[Group('NFR-06')]
+    #[Group('BR-10')]
+    public function testInlineFormErrorRedirectsBackKeepingTheTypedValue(): void
+    {
+        $this->loginAs('yonetici@evotel.test');
+        $customer = $this->c->users()->findByEmail('can@evotel.test');
+        self::assertNotNull($customer);
+        $back = '/yonetim/kullanicilar?q=can';
+
+        $response = $this->post('/yonetim/kullanici/' . $customer->id . '/durum', ['durum' => 'kisitli', 'neden' => 'kısa', 'donus' => $back]);
+
+        self::assertSame(303, $response->status, 'Hatada da yönlendirme (PRG)');
+        self::assertStringEndsWith($back, $response->headers['Location']);
+        $page = $this->get('/yonetim/kullanicilar', ['q' => 'can'])->body;
+        self::assertStringContainsString('value="kısa"', $page, 'Girilen neden korunur');
+        self::assertStringContainsString('Neden 5-500 karakter olmalıdır.', $page);
+        self::assertStringContainsString('is-invalid', $page);
+        self::assertSame(\App\Model\UserStatus::Aktif, $this->c->users()->findById((int) $customer->id)?->status, 'Kayıt değişmez');
+
+        $again = $this->get('/yonetim/kullanicilar', ['q' => 'can'])->body;
+        self::assertStringNotContainsString('value="kısa"', $again, 'Değer yalnızca bir kez gösterilir');
+
+        $fragmentBack = $this->post('/yonetim/kullanici/' . $customer->id . '/durum', ['durum' => 'kisitli', 'neden' => 'kısa', 'donus' => '/parca/kullanicilar?q=can']);
+        self::assertStringEndsWith('/yonetim/kullanicilar', $fragmentBack->headers['Location'], 'Parça adresi dönüş adresi olamaz');
+    }
+
+    /** İptal nedeni hatalıysa iptal formuna dönülür ve yazılan neden korunur; rezervasyon iptal edilmez. */
+    #[Group('NFR-06')]
+    #[Group('FR-17')]
+    public function testCancelFormKeepsTheReasonOnError(): void
+    {
+        $guest = $this->c->users()->findByEmail('ali@evotel.test');
+        self::assertNotNull($guest);
+        $unit = $this->c->units()->all()[0];
+        $reservation = $this->bookAndPay((int) $guest->id, $unit, '2027-09-14', '2027-09-16');
+        $this->loginAs('ali@evotel.test');
+        $reason = str_repeat('a', 501);
+
+        $response = $this->post('/rezervasyon/' . $reservation->number . '/iptal', ['neden' => $reason]);
+
+        self::assertSame(303, $response->status);
+        self::assertStringEndsWith('/rezervasyon/' . $reservation->number . '/iptal', $response->headers['Location']);
+        $page = $this->get('/rezervasyon/' . $reservation->number . '/iptal')->body;
+        self::assertStringContainsString('value="' . $reason . '"', $page);
+        self::assertStringContainsString('İptal nedeni en çok 500 karakter olabilir.', $page);
+        self::assertSame(\App\Model\ReservationStatus::Onaylandi, $this->c->reservations()->findByNumber($reservation->number)?->status);
+    }
 }

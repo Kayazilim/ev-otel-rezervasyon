@@ -97,6 +97,29 @@ final class View
         return isset($errors[$field]) ? ' is-invalid' : '';
     }
 
+    /** Yönlendirmeden önce hatalı gönderilen formun ($key) girilen değeri; yoksa $default (Controller::backWithInput). */
+    public function old(string $key, string $field, string $default = ''): string
+    {
+        $form = $this->shared['formState'] ?? null;
+        if (!is_array($form) || ($form['key'] ?? null) !== $key || !is_array($form['old'] ?? null)) {
+            return $default;
+        }
+        $value = $form['old'][$field] ?? null;
+
+        return is_string($value) ? $value : $default;
+    }
+
+    /** @return array<string, string> Hatalı gönderilen formun ($key) alan hataları */
+    public function formErrors(string $key): array
+    {
+        $form = $this->shared['formState'] ?? null;
+        if (!is_array($form) || ($form['key'] ?? null) !== $key || !is_array($form['errors'] ?? null)) {
+            return [];
+        }
+
+        return array_filter($form['errors'], 'is_string');
+    }
+
     /** @param array<string, string> $errors */
     public function error(array $errors, string $field): string
     {

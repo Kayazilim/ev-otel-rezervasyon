@@ -33,7 +33,9 @@ $res = $r->reservation;
                         <?= $view->csrfField() ?>
                         <div class="mb-3">
                             <label for="neden" class="form-label">İptal nedeni (isteğe bağlı)</label>
-                            <input type="text" class="form-control" id="neden" name="neden" maxlength="200">
+                            <?php $iptalHatalari = $view->formErrors('iptal'); ?>
+                            <input type="text" class="form-control<?= $view->invalid($iptalHatalari, 'neden') ?>" id="neden" name="neden" maxlength="500" value="<?= e($view->old('iptal', 'neden')) ?>">
+                            <?= $view->error($iptalHatalari, 'neden') ?>
                         </div>
                         <div class="d-flex gap-2">
                             <a class="btn btn-outline-secondary" href="<?= e($view->url('/rezervasyon/' . $res->number)) ?>">Vazgeç</a>

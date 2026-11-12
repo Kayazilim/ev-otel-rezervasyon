@@ -25,15 +25,36 @@ GitHub'da her SRS gereksinimi bir issue'dur; aşamalar milestone olarak, iş ak�
 
 ## Kurulum (JSON deposu, varsayılan)
 
-Gerekenler: PHP 8.2 veya üzeri (`fileinfo`, `mbstring`, `json` eklentileri) ve Composer. Veritabanı gerekmez.
+Gerekenler: PHP 8.2 veya üzeri (`fileinfo`, `mbstring`, `json` eklentileri), Composer ve Git. Veritabanı gerekmez. Komutlar Windows (PowerShell veya Git Bash), macOS ve Linux'ta aynıdır.
+
+1. Depoyu indirin ve klasörüne girin:
+
+```bash
+git clone https://github.com/Kayazilim/ev-otel-rezervasyon.git
+cd ev-otel-rezervasyon
+```
+
+2. Bağımlılıkları kurun (yalnızca test ve kod kalitesi araçları; uygulama çalışırken framework kullanılmaz):
 
 ```bash
 composer install
+```
+
+3. Örnek veriyi yükleyin (`storage/data` altındaki JSON dosyaları bugünün tarihine göre üretilir):
+
+```bash
 composer seed
+```
+
+4. Uygulamayı başlatın:
+
+```bash
 composer serve
 ```
 
-Tarayıcıda `http://localhost:8000` adresini açın. `composer seed` örnek veriyi bugünün tarihine göre yeniden üretir; veri klasörü boşsa ilk istekte de otomatik yüklenir. Sunumdan önce `composer seed` çalıştırmanız önerilir.
+5. Tarayıcıda `http://localhost:8000` adresini açın ve aşağıdaki demo hesaplarından biriyle giriş yapın. Testleri çalıştırmak için: `composer test` (veya doğrudan `vendor/bin/phpunit`).
+
+`composer seed` örnek veriyi bugünün tarihine göre yeniden üretir; veri klasörü boşsa ilk istekte de otomatik yüklenir. Sunumdan önce `composer seed` çalıştırmanız önerilir.
 
 **WAMP ile:** Proje `C:\wamp64\www\` altındaysa Apache'de `rewrite_module` açıkken `http://localhost/<klasör-adı>/` adresi kullanılabilir. Kökteki `.htaccess` yalnızca `public/` klasörünü web'e açar; `storage/`, `src/`, `config/`, `database/` ve `vendor/` klasörlerine doğrudan erişilemez.
 
@@ -114,9 +135,12 @@ schtasks /create /sc minute /mo 1 /tn "EvOtel gorev" /tr "php C:\wamp64\www\ev-o
 
 Doğruluk bu göreve bağlı değildir: çakışma kontrolü süresi dolmuş bekletmeleri zaten temizler (lazy expiry). Yönetici panelindeki **Şimdi çalıştır** düğmesi demo içindir. Yedekleri listelemek ve geri yüklemek: `php bin/yedek.php --liste`, `php bin/yedek.php --geri-yukle=<dosya> --evet` ([yedekleme.md](docs/yedekleme.md), geri yükleme denemesi kaydı dahil).
 
-### JSON uç noktası (AJAX)
+### JSON uç noktaları (AJAX ve kısmi yenileme)
 
-`GET /api/musaitlik?birim=2&giris=2026-11-20&cikis=2026-11-23&kisi=2` → müsaitlik, gecelik fiyat dökümü, indirim, vergi/ek ücret, toplam, iptal koşulu ve doluysa en çok 3 alternatif tarih (JSON). Hatalar da JSON döner (422, 404, 401, 503). İlan sayfasındaki "Müsaitlik ve fiyatı gör" düğmesi bu ucu sayfa yenilenmeden çağırır. Ayrıntı: [tasarim.md 12.5](docs/tasarim.md).
+- `GET /api/musaitlik?birim=2&giris=2026-11-20&cikis=2026-11-23&kisi=2` → müsaitlik, gecelik fiyat dökümü, indirim, vergi/ek ücret, toplam, iptal koşulu ve doluysa en çok 3 alternatif tarih. İlan sayfasındaki "Müsaitlik ve fiyatı gör" düğmesi bu ucu sayfa yenilenmeden çağırır.
+- `GET /api/rezervasyon/{no}/durum` → rezervasyon durumu ve kalan bekletme süresi. Rezervasyon sayfası bu ucu 5 saniyede bir çağırıp yalnızca durum bölümünü günceller (kısmi yenileme); ilan sahibi onaylayınca veya süre dolunca sayfa yenilenmeden değişir.
+
+Hatalar da JSON döner (`{"basarili":false,"hata":"..."}`; 400, 401, 403, 404, 422, 503). Sunucu hata verirse ya da ulaşılamazsa sayfa ilgili bölümün başında anlaşılır bir uyarı gösterir, son geçerli bilgi ekranda kalır. Ayrıntı: [tasarim.md 12.3 ve 12.5](docs/tasarim.md).
 
 ## Testler ve kod kalitesi
 
@@ -126,17 +150,43 @@ composer test
 
 | Komut | Ne yapar |
 | --- | --- |
-| `composer test` | Tüm PHPUnit testleri, JSON deposunda (225 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
+| `composer test` | Tüm PHPUnit testleri, JSON deposunda (240 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
 | `composer test:mysql` | Aynı testler MySQL'de (`evotel_test` veritabanı; `EVOTEL_TEST_DB_HOST/PORT/USER/PASSWORD`). Testler her seferinde tabloları boşalttığı için adı `_test` ile bitmeyen veritabanında çalışmaz. |
 | `composer test:hizli` | Eşzamanlılık testleri hariç |
 | `composer kapsam` | Satır kapsamı (Xdebug gerekir; HTML rapor `coverage/`) |
-| `composer izlenebilirlik` | Testleri koşar, kapsamı ölçer ve [gereksinim–test izlenebilirlik tablosunu](docs/test-izlenebilirlik.md) üretir |
+| `composer izlenebilirlik` | Testleri koşar, kapsamı ölçer ve [izlenebilirlik tablosunu](docs/izlenebilirlik.md) (kullanıcı hikâyesi / gereksinim → test) üretir |
+| `php bin/kural-boz.php` | Kural bozma deneyi: önemli kuralları geçici olarak bozar, kırılan testleri [kural-bozma-deneyi.md](docs/kural-bozma-deneyi.md) dosyasına yazar, dosyaları geri yükler. Tek deney: `--deney=hafta-sonu` |
 | `composer analiz` | PHPStan statik analiz (seviye 6; `src`, `bin`, `config`, `tests`) |
 | `composer stil` / `composer stil:duzelt` | PSR-12 kod stili denetimi / otomatik düzeltme |
 
-Son çalıştırma (10.11.2026): JSON deposunda 225 test / 1656 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 225 test / 1710 doğrulama, hepsi geçti. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,1 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
+Son çalıştırma (12.11.2026): JSON deposunda 240 test / 1755 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 240 test / 1809 doğrulama, hepsi geçti. Kural bozma deneyinde 7 kuralın 7'sinde ilgili testler kırıldı. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,1 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
 
 Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group FR-18` (her test doğruladığı gereksinim kodunu `#[Group]` olarak taşır).
+
+## Aşama 2 ödevi: istenenler ve karşılandığı yer
+
+| Ödev maddesi | Karşılandığı yer |
+| --- | --- |
+| PHP 8.2+, Composer PSR-4, namespace, PSR-12, framework yok | `composer.json`, `phpcs.xml` (`composer stil`), `ArchitectureTest::testNoFrameworkIsUsed` |
+| Tek giriş noktası; router, controller, service, repository, view ayrımı | `public/index.php` → `Kernel` → `Router` → `src/Controller` → `src/Service` → `src/Repository` → `views/` ([tasarim.md 1](docs/tasarim.md)) |
+| Form hatasında anlaşılır mesaj ve girilen geçerli değerlerin korunması | Alan bazlı mesajlar; tek formlu sayfalar 422 ile girilen değerlerle, satır içi formlar PRG bozulmadan (`Controller::backWithInput`) — `WebTest::testFormErrorsKeepTheValuesTheUserTyped`, `testInlineFormErrorRedirectsBackKeepingTheTypedValue`, `testCancelFormKeepsTheReasonOnError` |
+| POST-Redirect-GET ve flash mesajlar | Başarılı her POST yönlendirmeyle biter; rezervasyonda ayrıca tek kullanımlık anahtar (FR-35) — [tasarim.md 12.6](docs/tasarim.md) |
+| Kayıt, giriş, çıkış; `password_hash`; en az iki rol ve sahiplik kontrolü | 3 rol; her rotada erişim kuralı (`config/routes.php`), sahiplik servislerde; `WebTest::testRolesAreEnforcedOnTheServer` |
+| Başlangıç verisi betiği | `bin/seed.php` (`composer seed`): 15 kullanıcı, 8 ilan, 16 birim, 54 rezervasyon, 43 yorum |
+| JSON dosyalarında veri; her depo için arayüz; servisler arayüze bağımlı | `storage/data/*.json`; `src/Repository/*Interface.php` ve `src/Repository/Json/`; `ArchitectureTest` |
+| Okuma/yazma hatalarının ele alınması; `flock`; geçici dosyaya yazıp güvenli değiştirme | `JsonDatabase` (dışlayıcı kilit, geçici dosya + yeniden adlandırma, bozuk dosyada anlaşılır hata ve günlük kaydı) |
+| Dosya yüklemede tür ve boyut kontrolü, rastgele dosya adı | `PhotoService` (gerçek MIME, en çok 2 MB, rastgele ad, web kökü dışında saklama) |
+| Çekirdek problem testleri; hikâye/gereksinim eşlemesi; geçersiz girdi ve sınır durumları | [docs/izlenebilirlik.md](docs/izlenebilirlik.md) (US-01…US-04 ve her FR/NFR/BR/AC kodu → test) |
+| Tekrarlanabilir testler (saat ve rastgelelik denetlenebilir) | `FrozenClock` (sabit saat); rastgele değerler testlerde sonuca etki etmez |
+| Mümkün olduğunda bellekte çalışan sahte depo | `tests/Support/InMemory/` (çakışma ve fiyat birim testleri); `ReservationRepositoryContractTest` sahte deponun gerçeğiyle aynı davrandığını gösterir |
+| Kural bozulunca ilgili testin kırıldığının gösterilmesi | `php bin/kural-boz.php` → [docs/kural-bozma-deneyi.md](docs/kural-bozma-deneyi.md) |
+| En az 10 test; `vendor/bin/phpunit` ile çalışır | Bu belgede "Testler ve kod kalitesi" bölümü |
+| Sunucu tarafı doğrulama, URL'deki kimlikle başkasının verisine erişememe, iç ayrıntı göstermeme, `htmlspecialchars` | Servislerde doğrulama ve sahiplik; hata ayrıntısı yalnızca `storage/logs/app.log`; `e()` |
+| AJAX'ta beklenmeyen HTTP yanıtında uygun mesaj | `views/layout.php` (`bolumIstegi`, `jsonIstegi`), fiyat önizleme, favori düğmesi — [tasarim.md 12.3](docs/tasarim.md) |
+| Kısmi yenileme: JSON yanıtla ekran parçasını güncelleme, hata mesajı | Rezervasyon durumu: `GET /api/rezervasyon/{no}/durum`, 5 saniyede bir; süre kararı sunucuda |
+| `docs/ai-gunlugu.md` (yapay zekânın yanıldığı örnek dahil) | [docs/ai-gunlugu.md](docs/ai-gunlugu.md), "Yapay zekânın yanıldığı… durumlar" bölümü |
+| `docs/surec-raporu.md` | [docs/surec-raporu.md](docs/surec-raporu.md) |
+| Ayrı dallar, PR ile birleştirme, en az bir arkadaştan inceleme, herkesin kendi hesabıyla katkısı | Her iş ayrı dalda ve PR ile birleştirildi; ekip deposuna yükleme her üyenin kendi hesabıyla ve incelemeli PR ile yapılır |
 
 ## Ders şartları ve standart tablosu
 
@@ -150,8 +200,8 @@ Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group F
 | **Veritabanı:** 3NF, SQL migration, seed, JOIN'li rapor | `database/migrations/001–004.sql`, `bin/migrate.php --seed`, `MySqlReservationRepository::reportRows()` ve `database/sorgular/doluluk-gelir-raporu.sql` |
 | **Eşzamanlılık:** transaction ve satır kilidi | MySQL: `BEGIN … SELECT … FOR UPDATE … COMMIT`, kilit bekleme 5 sn, 2 yeniden deneme; JSON: dosya kilidi; koşullu güncelleme + `UNIQUE(birim, gece)`; 50 süreçli testler |
 | **Güvenlik:** hazırlıklı ifadeler, `password_hash`, XSS kaçışı, CSRF, `session_regenerate_id`, her işlemde yetki | `MySqlDatabase` (`ATTR_EMULATE_PREPARES=false`), `AuthService`, `e()`, `Kernel` (CSRF), `Auth::login` ve parola değişiminde oturum kimliği yenileme, rota yetkisi + servislerde sahiplik denetimi |
-| **Etkileşim:** JSON döndüren AJAX ucu | `GET /api/musaitlik` (`ApiController`) + 4 kendiliğinden yenilenen bölüm (`/parca/...`) |
-| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (225 test), [docs/test-izlenebilirlik.md](docs/test-izlenebilirlik.md) |
+| **Etkileşim:** JSON döndüren AJAX ucu | `GET /api/musaitlik` (`ApiController`), `GET /api/rezervasyon/{no}/durum` (JSON ile kısmi yenileme) + 3 kendiliğinden yenilenen HTML bölümü (`/parca/...`); beklenmeyen yanıtta kullanıcıya uyarı |
+| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (240 test), [docs/izlenebilirlik.md](docs/izlenebilirlik.md), [kural bozma deneyi](docs/kural-bozma-deneyi.md) |
 | **Kod kalitesi:** PHPStan, hatasız çalışma, anlaşılır hata mesajları | `composer analiz` (seviye 6, testler dahil), alan bazlı doğrulama mesajları, JSON uçta JSON hata, depo erişilemezse 503 ve açıklama |
 | **Süreç:** GitHub deposu, anlamlı commit geçmişi, Projects backlog, README | Bu depo; her SRS gereksinimi bir issue, 3 aşama milestone'u, [GitHub Projects panosu](https://github.com/users/Kayazilim/projects/1) (Yapılacak / Yapılıyor / Bitti, SRS önceliği, aşama görünümleri; issue kapanınca veya PR birleşince kart kendiliğinden Bitti'ye geçer), PR ile birleştirme |
 
@@ -163,7 +213,7 @@ Proje kartı ve ortak şartlar:
 | Kritik işlemler POST + CSRF, dosya yükleme kontrolü | `Kernel` (CSRF), `PhotoService` (gerçek MIME, 2 MB, sahte uzantı, sahiplik; oda bazında fotoğraf) |
 | Arama/filtre ve rapor ekranı | `/ara` (konum, tarih, kişi, tür, fiyat, puan, oda tipi, olanak, sıralama), `/panel/rapor`, `/yonetim/rapor` |
 | HTML, CSS, Bootstrap, resim/ikon dosyası yok, telefonda kullanılabilir | Bootstrap 5 ve resmi minimalist tema (`public/assets/app.css`; renk, yazı ve boşluk değerleri Lovable'da hazırlanan tasarım prototipinden alındı, prototip kodu kullanılmadı). Resim, ikon veya çizim dosyası hazırlanmaz: simgeler Unicode ve emoji, takvim CSS grid; ilan fotoğrafları yalnızca ilan sahibinin yüklediği fotoğraflardır. 375 px genişlikte yatay taşma yok. |
-| Sayfanın bir bölümünü kendiliğinden yenileme | Müsaitlik takvimi, gelen rezervasyonlar, rezervasyon durumu, bildirim sayısı ([tasarim.md 12.3](docs/tasarim.md)) |
+| Sayfanın bir bölümünü kendiliğinden yenileme | Rezervasyon durumu (JSON), müsaitlik takvimi, gelen rezervasyonlar, bildirim sayısı (HTML parça) ([tasarim.md 12.3](docs/tasarim.md)) |
 | Koşullu güncelleme ve etkilenen satır kontrolü | `updateStatusIf` (`UPDATE … WHERE id = ? AND status = ?`, `rowCount() === 1`) |
 | Örnek veri (en az 10 oda/ev, 3 oda tipi) | 16 birim, 6 oda tipi |
 | Kart: tarih bazlı arama, aylık takvim, gecelik döküm, yaşam döngüsü, doluluk ve gelir raporu, resim yükleme | Hepsi uygulandı |
@@ -180,16 +230,18 @@ config/      app.php (süre, limit, oran, depo ve e-posta ayarları), routes.php
 src/         Core, Controller, Service, Repository (Json, MySql), Model, Support, Exception, Seed
 views/       Bootstrap görünümleri (her çıktı e() ile kaçışlanır)
 database/    migrations/ (MySQL şeması, 3NF), sorgular/ (JOIN'li rapor sorgusu)
-bin/         seed.php, gorev.php, migrate.php, yedek.php, izlenebilirlik.php, eposta-dene.php
+bin/         seed.php, gorev.php, migrate.php, yedek.php, izlenebilirlik.php, kural-boz.php, eposta-dene.php
 storage/     data (JSON tablolar), uploads, logs, mail (simüle e-posta), backups – web'den erişilemez
-tests/       Unit, Integration, Concurrency (+ bin/rezervasyon-isci.php paralel süreç, bin/sahte-smtp.php)
-docs/        srs.md, tasarim.md, test-izlenebilirlik.md, yedekleme.md, ai-gunlugu.md, arayüz tasarımları
+tests/       Unit, Integration, Concurrency, Support/InMemory (bellekteki sahte depolar) (+ bin/rezervasyon-isci.php paralel süreç, bin/sahte-smtp.php)
+docs/        srs.md, tasarim.md, izlenebilirlik.md, kural-bozma-deneyi.md, surec-raporu.md, yedekleme.md, ai-gunlugu.md, arayüz tasarımları
 ```
 
 ## Belgeler
 
 - [Gereksinimler (SRS v2.3)](docs/srs.md) · [kaynak .docx](docs/OTEL_KIRALIK_EV_REZERVASYON_SISTEMI_SRS_v2_3.docx)
 - [Tasarım belgesi](docs/tasarim.md) (bölüm 13: Aşama 3 MySQL katmanı)
-- [Gereksinim–test izlenebilirlik tablosu](docs/test-izlenebilirlik.md)
+- [İzlenebilirlik: kullanıcı hikâyesi ve gereksinim → test](docs/izlenebilirlik.md)
+- [Kural bozma deneyi](docs/kural-bozma-deneyi.md)
+- [Süreç raporu](docs/surec-raporu.md)
 - [Yedekleme ve geri yükleme](docs/yedekleme.md)
 - [Yapay zekâ kullanım günlüğü](docs/ai-gunlugu.md)

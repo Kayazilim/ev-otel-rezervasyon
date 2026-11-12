@@ -60,15 +60,16 @@ final class Kernel
 
                 return $this->secure(Response::redirect($view->url('/giris')));
             }
-            // Kendiliğinden yenilenen sayfa bölümleri (/parca/...) kullanıcı işlemi sayılmaz;
+            // Kendiliğinden yenilenen bölümler (/parca/... HTML ve GET /api/... JSON) kullanıcı işlemi sayılmaz;
             // yoksa açık bırakılan bir sekme oturumu canlı tutar ve zaman aşımı hiç çalışmaz.
-            if (!$this->fragment) {
+            if (!$this->fragment && !($this->api && $request->method === 'GET')) {
                 $session->touch($now);
             }
 
             $view->share('csrfToken', $this->container->csrf()->token());
             $view->share('currentUser', $auth->user());
             $view->share('currentPath', $request->path);
+            $view->share('currentUrl', $request->fullPath()); // satır içi formların dönüş adresi (donus)
             $view->share('appName', $this->container->settings->appName);
             // FR-04: e-posta modu ve (yalnızca bu bilgisayardan) simüle posta kutusu bağlantısı
             $view->share('mailMode', $this->container->settings->mailDriver);

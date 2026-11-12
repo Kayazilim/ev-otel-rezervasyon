@@ -12,7 +12,27 @@ Ders kuralı: kodlamada yapay zekâ kullanılabilir, ancak grubun her üyesi pro
 | Amaç | Ne için kullanıldı |
 | İstem özeti | Yapay zekâya ne verildi (bağlam: SRS, tasarım, ders kuralları) |
 | Çıktı | Ne üretildi (dosyalar) |
-| Doğrulama | Üyenin nasıl kontrol ettiği, neyi değiştirdiği |
+| Doğrulama | Üyenin nasıl kontrol ettiği, neyi değiştirdiği veya reddettiği |
+
+## Yapay zekânın yanıldığı, eksik kaldığı veya önerisinin reddedildiği durumlar
+
+Aşağıdaki örnekler kayıtlardan derlendi. Her birinde yapay zekânın önerisi veya ürettiği kod sorunluydu ya da kurala aykırıydı; sorun test, ölçüm veya kod incelemesiyle fark edildi ve düzeltildi.
+
+| Tarih | Yapay zekânın önerisi / ürettiği | Sorun | Nasıl fark edildi | Ne yapıldı |
+| --- | --- | --- | --- | --- |
+| 08.11 | "İlanların resimleri olsun" isteği üzerine örnek veriye PHP GD ile çizilmiş 36 ilan fotoğrafı | Ders kuralına aykırıydı: "Resim, ikon veya çizim dosyası hazırlanmaz." Yapay zekâ isteği uygularken kuralla çeliştiğini söylemedi. | 09.11 kural denetiminde ders belgesi madde madde yeniden okunurken | Önce kapatıldı (PR #84), 10.11'de çizim kodu depodan silindi (PR #86). Kural dışı istekler artık uygulanmadan önce sorgulanıyor. |
+| 08.11 | Parola sıfırlama e-postasını yalnızca `storage/mail` klasörüne yazan ilk sürüm | Kullanıcı sıfırlama bağlantısını hiçbir yerde göremiyordu (yetersiz çözüm). | Uygulamayı deneyen grup üyesi bildirdi | Geliştirme posta kutusu (`/posta-kutusu`) ve isteğe bağlı gerçek SMTP eklendi (PR #81). "Kayıtlı olmayan adrese de aynı mesaj" davranışı bilinçli olduğu (hesap varlığı sızdırılmaz) için korundu ve açıklandı. |
+| 10.11 | 5 saniyede bir yenilenen sayfa bölümleri | Her yenileme isteği oturumun son işlem zamanını ilerletiyordu; 30 dakikalık oturum zaman aşımı hiç çalışmıyordu. | Kod incelemesi; ardından zaman aşımı geçici sunucuda 1 dakikaya indirilerek tarayıcıda denendi | Kendiliğinden yenilenen istekler işlem sayılmadı, oturumsuz istekler 401 alıyor; testleri eklendi (PR #86). |
+| 10.11 | Arayüz renk paleti | İkincil gri metin kırık beyaz zeminde 4,47:1 kontrastla WCAG 2.1 AA (4,5:1) altında kaldı (SRS NFR-12). | 26 sayfada tarayıcıda otomatik kontrast ölçümü | Renk `#5f6672` yapıldı; klavye odağı ve seçim listeleri de düzeltildi (PR #86). |
+| 12.11 | Rezervasyon durumunu JSON ile yenileyen yeni uç (`/api/...`) | 10.11'de düzeltilen hata yeni uçta tekrarlanıyordu: JSON yenileme istekleri oturumu yine uzatıyordu. | Değişiklik gözden geçirilirken | Arka plandaki `GET /api/` istekleri de işlem sayılmadı; test eklendi. |
+| 12.11 | Çekirdek birim testlerinin bellekteki sahte depoya taşınması | Taşıma sonrasında JSON deposunun yarı açık aralık sorgusu ve koşullu güncellemesi hızlı test grubunda hiçbir testle sınanmıyordu (kural bozulunca 0 test kırıldı). | `bin/kural-boz.php` kural bozma deneyi | Aynı testleri hem JSON deposunda hem sahte depoda çalıştıran `ReservationRepositoryContractTest` eklendi; deney yeniden çalıştırıldı. |
+| 10.11 | Ekip deposu paketlerinde, ekip deposundaki eski `src/Model/Property.php` dosyasını silme adımı | O dosyanın yerine bizim sürümümüz yazılıyordu; silme adımı yeni dosyayı da silecekti. | Paket betiği çalıştırılmadan önce gözden geçirilirken | Adım kaldırıldı; paketler ekip deposunun kopyasına sırayla uygulanarak denendi. |
+
+Reddedilen veya değiştirilen öneriler:
+
+- Lovable'ın ürettiği React arayüz kodu kullanılmadı (ders kuralı: framework yasak); yalnızca renk, yazı ve boşluk değerleri alındı, arayüz PHP görünümleri ve Bootstrap ile yazıldı.
+- Varsayılan veri deposunu MySQL'e çevirmek Aşama 2'de reddedildi (Aşama 2 kuralı: veriler JSON dosyalarında); MySQL varsayılanı final aşamasına bırakıldı (GitHub #77).
+- Bildirim sayacının 15 saniye olan yenileme aralığı, ders kalıbındaki "birkaç saniyede bir" ifadesine göre 5 saniyeye indirildi (PR #85).
 
 ## Kayıtlar
 
@@ -102,6 +122,17 @@ Ders kuralı: kodlamada yapay zekâ kullanılabilir, ancak grubun her üyesi pro
 | --- | --- |
 | Amaç | Kaan Şahin'in kendi deposunda yapay zekâ ile geliştirilen Aşama 2 kodunun ekip deposuna, her üyenin kendi hesabıyla ve PR ile yüklenmesi için katmanlara bölünmesi. |
 | İstem özeti | "Bu commitleri nasıl ayırıp herkes kendi başına düşeni asıl repoya yükleyecek?" Karar: MySQL katmanı Aşama 3'e bırakılsın. |
-| Çıktı | Ekip deposu için yalnızca JSON kullanan sürüm hazırlandı: MySQL depo sınıfları, migration'lar, `bin/migrate.php` ve MySQL'e özel testler çıkarıldı; `Container`, `Settings`, testler ve belgeler buna göre sadeleştirildi (tasarim.md bölüm 13 "Aşama 3 planı" oldu). Kod 5 pakete bölündü: 1) altyapı (Utku), 2) model ve repository (Onur), 3) servisler (İrem), 4) controller ve görünümler (Kaan), 5) örnek veri, araçlar ve belgeler (Utku). Her paket kendi testleriyle birlikte. |
-| Doğrulama | JSON sürümünde 218 test / 1615 doğrulama geçti (atlanan yok), PHPStan ve PHPCS hatasız; izlenebilirlik tablosu bu sürümün sonuçlarıyla üretildi. Paketler ekip deposunun son hâline sırayla uygulanarak denendi; sonuç kaynakla birebir aynı. |
+| Çıktı | Ekip deposu için yalnızca JSON kullanan sürüm hazırlandı: MySQL depo sınıfları, migration'lar, `bin/migrate.php` ve MySQL'e özel testler çıkarıldı; `Container`, `Settings`, testler ve belgeler buna göre sadeleştirildi (tasarim.md bölüm 13 "Aşama 3 planı" oldu). Kod, ayrı ayrı anlatılabilen 20 konuya (commit) bölündü: Utku 4 (proje iskeleti; yardımcı sınıflar; HTTP çekirdeği; Container ve test altyapısı), Onur 4 (modeller; istisnalar ve depo arayüzleri; JSON deposu; eşzamanlılık testleri), İrem 4 (fiyatlandırma; iptal ve iade; rezervasyon çekirdeği; diğer servisler), Kaan 8 (iki controller grubu; yerleşim ve tema; ziyaretçi, müşteri ve panel sayfaları; örnek veri ve araçlar; belgeler). Her commit kendi testleriyle birlikte; her üye kendi commit'leri için bir PR açar. |
+| Doğrulama | JSON sürümünde 218 test / 1615 doğrulama geçti (atlanan yok), PHPStan ve PHPCS hatasız; izlenebilirlik tablosu bu sürümün sonuçlarıyla üretildi. 20 commit ekip deposunun son hâline sırayla uygulanarak denendi; sonuç kaynakla birebir aynı. |
 | Dikkat edilecekler (10.11) | Kod yapay zekâ ile Kaan Şahin tarafından üretildi; her üye kendi paketini yüklemeden önce okuyup anlamalı ve bu günlüğe kendi inceleme notunu eklemelidir (ders kuralı: her üye projenin her bölümünü açıklayabilmeli). MySQL katmanı Kaan Şahin'in deposunda hazır; Aşama 3'te ayrı PR olarak eklenecek. |
+
+### 12.11.2026 · Kaan Şahin · Claude Code (Claude Opus 5.5) · Aşama 2 ödev metnine uyum
+
+| Alan | İçerik |
+| --- | --- |
+| Amaç | Projenin, dersin yayımladığı "Aşama 2 Ödevi: Veritabanısız Çalışan Prototip" metnine madde madde uydurulması. |
+| İstem özeti | Ödev metni olduğu gibi verildi; eksiklerin bulunup giderilmesi istendi. |
+| Çıktı | (1) Hatalı formda girilen değerler korunuyor: tek formlu sayfalar 422 ile, satır içi formlar PRG bozulmadan (`Controller::backWithInput`, `Session::flashForm`, `View::old`); 8 form düzeltildi. (2) Kısmi yenileme JSON ile: rezervasyon durumu `GET /api/rezervasyon/{no}/durum` üzerinden 5 saniyede bir güncelleniyor; süre kararı sunucuda. (3) Her `fetch` çağrısı hata yanıtında ve bağlantı kopunca anlaşılır uyarı gösteriyor (`bolumIstegi`, `jsonIstegi`, `bolumUyarisi`). (4) Çakışma ve fiyat birim testleri bellekte çalışan sahte depolarla yazıldı (`tests/Support/InMemory/`); sahte deponun gerçeğiyle aynı davrandığını gösteren sözleşme testi eklendi. (5) Kural bozma deneyi betiği (`bin/kural-boz.php`) ve sonucu (`docs/kural-bozma-deneyi.md`). (6) İzlenebilirlik dosyası ödevin istediği adla (`docs/izlenebilirlik.md`) ve kullanıcı hikâyesi bölümüyle üretiliyor. (7) Süreç raporu (`docs/surec-raporu.md`) ve bu günlükte "yapay zekânın yanıldığı durumlar" bölümü. 15 yeni test. |
+| Doğrulama | JSON deposunda 240 test / 1755 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 240 test / 1809 doğrulama geçti; PHPStan ve PHPCS hatasız. Kural bozma deneyinde 7 kuralın 7'sinde ilgili testler kırıldı, geri yüklemeden sonra hepsi geçti. Tarayıcıda: rezervasyon sayfasındaki durum 5 saniyede bir JSON ile güncellendi; sunucu durdurulunca bölümün başında uyarı çıktı, menüdeki sayaç uyarı işareti gösterdi; sunucu açılınca uyarı kendiliğinden kalktı. |
+| Değiştirilen / reddedilen | İlk kural bozma deneyinde yarı açık aralık sorgusu 0 test kırdı: çekirdek testleri sahte depoya taşırken JSON deposunun bu sorgusu testsiz kalmıştı. Sözleşme testi eklendi. JSON durum ucu ilk hâliyle oturumu uzatıyordu (10.11'deki hatanın tekrarı); `GET /api/` istekleri de işlem sayılmadı. |
+| Dikkat edilecekler (12.11) | Süreç raporundaki eleştirmen grup geri bildirimleri ve ekip deposundaki yükleme PR bağlantıları ekip tarafından doldurulacak; rapor bunları uydurmaz. |
