@@ -4,17 +4,17 @@
 > Her deneyde çekirdek problemin bir kuralı kaynak kodda geçici olarak bozuldu, testler (eşzamanlılık testleri hariç) çalıştırıldı,
 > kırılan testler kaydedildi ve dosya eski hâline döndürüldü. Tek bir deneyi sunumda canlı göstermek için: `php bin/kural-boz.php --deney=hafta-sonu`.
 
-Son çalıştırma: 12.11.2026 04:29 · PHP 8.3.28 · bozulmadan önce 234 test geçti · 7 deneyin 7 tanesinde ilgili testler kırıldı · geri yüklendikten sonra 234 test, hepsi geçti.
+Son çalıştırma: 12.11.2026 20:00 · PHP 8.3.28 · bozulmadan önce 238 test geçti · 7 deneyin 7 tanesinde ilgili testler kırıldı · geri yüklendikten sonra 238 test, hepsi geçti.
 
 | Deney | Bozulan kural | Bozulma ne demek | Kırılan test |
 | --- | --- | --- | ---: |
-| `yari-acik-aralik` | BR-11 / BR-13: yarı açık aralık; çıkış günü başka misafirin giriş günü olabilir | Çıkış günü de dolu sayılır; arka arkaya iki rezervasyon çakışıyor görünür. | 2 / 234 |
-| `suresi-dolan-bekletme` | BR-12 / BR-15: süresi dolan Beklemede kayıt geceleri engellemez | Süresi dolmuş bekletme de geceleri tutmaya devam eder. | 7 / 234 |
-| `hafta-sonu` | BR-23: hafta sonu farkı Cuma ve Cumartesi gecelerine uygulanır | Hafta sonu Cumartesi ve Pazar geceleri sayılır. | 5 / 234 |
-| `uzun-konaklama` | BR-24: ulaşılan en yüksek uzun konaklama eşiği uygulanır | En düşük eşik seçilir (28 gecede %20 yerine %10). | 1 / 234 |
-| `iade-orani` | BR-17: Orta politikada girişe en az 5 gün kala %100, 1–4 gün kala %50 iade | Eşik bir gün kayar; 4 gün kala da tam iade verilir. | 1 / 234 |
-| `kosullu-guncelleme` | Eşzamanlılık: koşullu güncelleme (yalnızca durum hâlâ beklenen değerse değişir) | Durum az önce değişmiş olsa da üzerine yazılır (ör. iptal edilmiş kayıt onaylanır). | 1 / 234 |
-| `gece-benzersizligi` | Çift rezervasyon önleme, son savunma: UNIQUE(birim, gece) | Aynı birimin aynı gecesi iki kez yazılabilir. | 3 / 234 |
+| `yari-acik-aralik` | BR-11 / BR-13: yarı açık aralık; çıkış günü başka misafirin giriş günü olabilir | Çıkış günü de dolu sayılır; arka arkaya iki rezervasyon çakışıyor görünür. | 2 / 238 |
+| `suresi-dolan-bekletme` | BR-12 / BR-15: süresi dolan Beklemede kayıt geceleri engellemez | Süresi dolmuş bekletme de geceleri tutmaya devam eder. | 7 / 238 |
+| `hafta-sonu` | BR-23: hafta sonu farkı Cuma ve Cumartesi gecelerine uygulanır | Hafta sonu Cumartesi ve Pazar geceleri sayılır. | 5 / 238 |
+| `uzun-konaklama` | BR-24: ulaşılan en yüksek uzun konaklama eşiği uygulanır | En düşük eşik seçilir (28 gecede %20 yerine %10). | 1 / 238 |
+| `iade-orani` | BR-17: Orta politikada girişe en az 5 gün kala %100, 1–4 gün kala %50 iade | Eşik bir gün kayar; 4 gün kala da tam iade verilir. | 1 / 238 |
+| `kosullu-guncelleme` | Eşzamanlılık: koşullu güncelleme (yalnızca durum hâlâ beklenen değerse değişir) | Durum az önce değişmiş olsa da üzerine yazılır (ör. iptal edilmiş kayıt onaylanır). | 1 / 238 |
+| `gece-benzersizligi` | Çift rezervasyon önleme, son savunma: UNIQUE(birim, gece) | Aynı birimin aynı gecesi iki kez yazılabilir. | 3 / 238 |
 
 ## `yari-acik-aralik`: BR-11 / BR-13: yarı açık aralık; çıkış günü başka misafirin giriş günü olabilir
 

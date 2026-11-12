@@ -48,7 +48,7 @@ Tablodaki bilgiler git geçmişinden alındı. Aşama 2 kodu, Kaan Şahin taraf�
 
 ## 5. Testler
 
-- **Sayı:** ekip deposundaki yalnızca JSON sürümünde 233 test (1714 doğrulama); MySQL depo sınıflarının da bulunduğu Kaan Şahin deposunda JSON ile 240 test (1755 doğrulama; MySQL'e özel 7 test JSON'da atlanır) ve MySQL 8.4 ile 240 test (1809 doğrulama), hepsi geçti. Komut: `vendor/bin/phpunit` (veya `composer test`).
+- **Sayı:** ekip deposundaki yalnızca JSON sürümünde 237 test (1747 doğrulama); MySQL depo sınıflarının da bulunduğu Kaan Şahin deposunda JSON ile 244 test (1788 doğrulama; MySQL'e özel 7 test JSON'da atlanır) ve MySQL 8.4 ile 244 test (1842 doğrulama), hepsi geçti. Komut: `vendor/bin/phpunit` (veya `composer test`).
 - **Önemli sınır durumları:**
   - Çıkış günü yeni girişe açıktır: 10–12 rezervasyonu varken 12–14 kabul edilir, 11–13 reddedilir (`BookingConflictServiceTest::testCheckOutDayIsFreeForTheNextGuest`, `ReservationRepositoryContractTest::testOverlapQueryUsesHalfOpenInterval`).
   - Bekletme süresi saniyesi saniyesine sınanır: bitişten 1 saniye önce geçerli, 1 saniye sonra geçersizdir (`testExpiredHoldDoesNotBlockEvenBeforeCleanup`).
@@ -63,6 +63,8 @@ Tablodaki bilgiler git geçmişinden alındı. Aşama 2 kodu, Kaan Şahin taraf�
 1. **Oturum zaman aşımı hiç çalışmıyordu.** Neden: kendiliğinden yenilenen bölümlerin istekleri kullanıcı işlemi sayılıyordu. Çözüm: `/parca/` ve `GET /api/` istekleri son işlem zamanını ilerletmiyor; oturumu biten arka plan isteği `401` alıyor ve sayfa kullanıcıyı giriş sayfasına götürüyor.
 2. **Ders kuralına aykırı örnek veri.** Neden: örnek verideki çizilmiş fotoğraflar "çizim dosyası hazırlanmaz" kuralını çiğniyordu. Çözüm: çizim kodu silindi; ilanlar emoji yer tutucuyla görünüyor, gerçek fotoğrafı ilan sahibi yüklüyor. Ders kuralıyla çelişen istekler artık uygulanmadan önce sorgulanıyor.
 3. **Bazı çekirdek kurallar testsiz kalmıştı.** Neden: kural bozma deneyi, veri katmanındaki iki güvencenin (yarı açık aralık sorgusu ve koşullu güncelleme) hızlı testlerde sınanmadığını gösterdi. Çözüm: depo sözleşme testi eklendi; deney yeniden çalıştırılınca 7 kuralın hepsi yakalandı.
+
+Elle denemelerde bulunan hatalar ve düzeltmeleri ayrıca [hata-kayitlari.md](hata-kayitlari.md) dosyasında tutulur. 12.11'de iki hata kaydedildi. H-01'de çıkış günü kuralı çalışıyordu, ama "müsait değil" yanıtı hangi gecenin dolu olduğunu söylemiyordu. H-02'de parola sıfırlama bağlantısı açılırken süresi denetlenmiyordu.
 
 ## 7. Eleştirmen grubun geri bildirimleri
 
