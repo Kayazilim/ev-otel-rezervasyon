@@ -241,7 +241,27 @@ final class BookingConflictServiceTest extends TestCase
             self::assertSame('Seçtiğiniz tarihler artık müsait değil.', $e->getMessage());
             self::assertNotEmpty($e->alternatives());
             self::assertLessThanOrEqual(3, count($e->alternatives()));
+            self::assertSame(['2026-11-11'], array_map(fn (DateTimeImmutable $n): string => $n->format('Y-m-d'), $e->nights()), 'Hangi gecenin dolu olduğu söylenir');
         }
+    }
+
+    /**
+     * Hata kaydı H-01 (docs/hata-kayitlari.md): müsait olmayan aralıkta hangi gecelerin dolu olduğu söylenir
+     * (başka rezervasyonun geceleri ve ilan sahibinin kapattığı geceler). Çıkış günü listede yer almaz.
+     */
+    #[Group('BR-11')]
+    #[Group('BR-13')]
+    #[Group('BR-22')]
+    public function testUnavailableNightsNameOnlyTheTakenNights(): void
+    {
+        $this->reservation(ReservationStatus::Onaylandi, '2026-11-10', '2026-11-12');
+        $this->mem->calendar->upsert(new CalendarEntry(null, (int) $this->unit->id, $this->d('2026-11-13'), CalendarStatus::Kapali, null));
+        $conflicts = $this->conflicts();
+        $days = fn (array $nights): array => array_map(fn (DateTimeImmutable $n): string => $n->format('Y-m-d'), $nights);
+
+        self::assertSame(['2026-11-11', '2026-11-13'], $days($conflicts->unavailableNights((int) $this->unit->id, $this->range('2026-11-11', '2026-11-14'))));
+        self::assertSame([], $days($conflicts->unavailableNights((int) $this->unit->id, $this->range('2026-11-12', '2026-11-13'))), 'Çıkış günü (12) dolu sayılmaz');
+        self::assertSame(['2026-11-10', '2026-11-11'], $days($conflicts->unavailableNights((int) $this->unit->id, $this->range('2026-11-09', '2026-11-12'))));
     }
 
     #[Group('FR-10')]

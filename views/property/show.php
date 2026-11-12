@@ -282,6 +282,10 @@ $maxBar = max(1, ...array_values($detail->ratingDistribution));
                         });
                         durum.append(oge('div', 'small mt-1', 'Yakın müsait tarihler:'), liste);
                     }
+                    if (!veri.musait && veri.dolu_geceler && veri.dolu_geceler.length > 0) {
+                        durum.prepend(oge('div', 'small mb-1', 'Dolu gece: ' + veri.dolu_geceler.map(g => g.metin).join(', ')
+                            + '. Bir konaklamanın çıkış günü yeni girişe açıktır; dolu görünen geceler o gece konaklayan başka bir rezervasyona ait ya da kapatılmış.'));
+                    }
                     const tablo = oge('table', 'table table-sm dokum mb-1');
                     const govde = oge('tbody');
                     veri.geceler.forEach(g => satir(govde, g.aciklama, g.metin));

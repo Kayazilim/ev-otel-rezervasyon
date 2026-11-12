@@ -23,6 +23,9 @@ $range = $preview->range;
 <?php if ($conflict !== null): ?>
     <div class="alert alert-danger" role="alert">
         <strong>❗ <?= e($conflict->getMessage()) ?></strong> Bu tarihler siz onay ekranındayken başka bir rezervasyonla doldu; hiçbir kayıt oluşturulmadı.
+        <?php if ($conflict->nights() !== []): ?>
+            <div class="mt-1">Dolu gece: <?= e(implode(', ', array_map(static fn (DateTimeImmutable $n): string => $n->format('d.m.Y'), $conflict->nights()))) ?>.</div>
+        <?php endif; ?>
         <?php if ($conflict->alternatives() !== []): ?>
             <div class="mt-2">Aynı gece sayısında yakın müsait tarihler:</div>
             <ul class="mb-0">
@@ -36,6 +39,10 @@ $range = $preview->range;
     </div>
 <?php elseif (!$preview->available): ?>
     <div class="alert alert-warning">Seçtiğiniz tarihler şu anda müsait görünmüyor.
+        <?php if ($preview->unavailableNights !== []): ?>
+            <div class="mt-1">Dolu gece: <?= e(implode(', ', array_map(static fn (DateTimeImmutable $n): string => $n->format('d.m.Y'), $preview->unavailableNights))) ?>. Bir konaklamanın çıkış günü yeni girişe açıktır; dolu görünen geceler o gece konaklayan başka bir rezervasyona ait ya da kapatılmış.</div>
+            <div class="mt-1">Yakın müsait tarihler:</div>
+        <?php endif; ?>
         <?php foreach ($preview->alternatives as $alt): ?>
             <a class="ms-2" href="<?= e($view->url('/rezervasyon/onizleme', ['birim' => $u->id, 'giris' => $alt->checkIn->format('Y-m-d'), 'cikis' => $alt->checkOut->format('Y-m-d'), 'kisi' => $preview->guests])) ?>"><?= e((string) $alt) ?></a>
         <?php endforeach; ?>
