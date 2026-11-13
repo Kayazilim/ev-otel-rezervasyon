@@ -14,6 +14,7 @@ use App\Exception\StorageUnavailableException;
 use App\Exception\ValidationException;
 use App\Model\Role;
 use App\Seed\DemoSeeder;
+use ErrorException;
 use Throwable;
 
 /**
@@ -24,6 +25,9 @@ use Throwable;
  */
 final class Kernel
 {
+    /** "@" işlecinin susturamadığı hata düzeyleri. */
+    private const UNSILENCEABLE = E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR | E_USER_ERROR | E_RECOVERABLE_ERROR;
+
     /** İstek /api/ ile başlıyorsa yanıtlar (hatalar dahil) JSON'dur. */
     private bool $api = false;
 
@@ -35,6 +39,32 @@ final class Kernel
     }
 
     public function handle(Request $request): Response
+    {
+        set_error_handler(self::warningToException(...));
+        try {
+            return $this->dispatch($request);
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    /**
+     * PHP uyarısı (warning, notice) sayfaya dosya yolu ve satır numarasıyla basılmaz: istisnaya çevrilir, ayrıntısı
+     * günlüğe yazılır, kullanıcı genel hata sayfasını görür (H-05; ödev 4. bölüm). "@" ile bilerek susturulan
+     * uyarılara ve kullanımdan kalkma (deprecation) bildirimlerine dokunulmaz.
+     */
+    public static function warningToException(int $level, string $message, string $file = '', int $line = 0): bool
+    {
+        // "@" ile susturulan ifadede error_reporting() yalnızca bastırılamayan düzeyleri taşır (PHP 8).
+        $silenced = (error_reporting() & ~self::UNSILENCEABLE) === 0;
+        if ($silenced || $level === E_DEPRECATED || $level === E_USER_DEPRECATED) {
+            return false;
+        }
+
+        throw new ErrorException($message, 0, $level, $file, $line);
+    }
+
+    private function dispatch(Request $request): Response
     {
         $view = $this->container->view($request->basePath);
         $session = $this->container->session();

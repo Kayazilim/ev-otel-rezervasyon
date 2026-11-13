@@ -673,4 +673,75 @@ final class WebTest extends AppTestCase
         self::assertStringContainsString('İptal nedeni en çok 500 karakter olabilir.', $page);
         self::assertSame(\App\Model\ReservationStatus::Onaylandi, $this->c->reservations()->findByNumber($reservation->number)?->status);
     }
+
+    /**
+     * Hata kaydı H-05: adres çubuğunda dizi biçimli bir değer (ör. ?puan[]=1) sayfaya "Array to string conversion"
+     * uyarısını dosya yoluyla basıyordu. Artık sayfa normal açılır, seçeneklerden hiçbiri seçili gelmez.
+     */
+    #[Group('NFR-10')]
+    #[Group('NFR-06')]
+    public function testArrayValuesInTheQueryStringDoNotLeakWarnings(): void
+    {
+        $search = $this->get('/ara', ['puan' => ['1'], 'tur' => ['a' => ['b' => '1']], 'sirala' => ['x']]);
+        self::assertSame(200, $search->status);
+        self::assertStringNotContainsString('Array to string', $search->body);
+
+        $this->loginAs('yonetici@evotel.test');
+        foreach (['/yonetim/kullanicilar' => ['rol' => ['1'], 'durum' => ['1']], '/yonetim/ilanlar' => ['durum' => ['1']]] as $path => $query) {
+            $page = $this->get($path, $query);
+            self::assertSame(200, $page->status, $path);
+            self::assertStringNotContainsString('Array to string', $page->body, $path);
+        }
+    }
+
+    /** Hata kaydı H-06: ilan sahibinin takviminde geçersiz ay (2026-00, 2026-13) sunucu hatası vermez; bu ay gösterilir. */
+    #[Group('FR-22')]
+    public function testHostCalendarShowsThisMonthForAnInvalidMonth(): void
+    {
+        $this->loginAs('ayse@evotel.test');
+        foreach (['2026-00', '2026-13', '2026-99'] as $month) {
+            $page = $this->get('/panel/takvim', ['ay' => $month]);
+            self::assertSame(200, $page->status, $month);
+            self::assertStringContainsString('Kasım 2026', $page->body, $month);
+        }
+        self::assertStringContainsString('Ocak 2027', $this->get('/panel/takvim', ['ay' => '2027-01'])->body);
+    }
+
+    /**
+     * Hata kaydı H-08: listede olmayan bir seçim değeri sessizce varsayılana dönüyordu; takvimde geçersiz durum
+     * gönderilince kapatılan geceler açılıyordu. Artık hata verilir ve kayıt değişmez.
+     */
+    #[Group('FR-22')]
+    #[Group('NFR-06')]
+    public function testUnknownChoiceValuesAreRejectedInsteadOfDefaulted(): void
+    {
+        $this->loginAs('ayse@evotel.test');
+        $host = $this->c->users()->findByEmail('ayse@evotel.test');
+        self::assertNotNull($host);
+        $property = array_values(array_filter($this->c->properties()->all(), static fn ($p): bool => $p->ownerId === $host->id))[0];
+        $unit = $this->c->units()->findByProperty((int) $property->id)[0];
+        $form = ['ilan' => (string) $property->id, 'birim' => (string) $unit->id, 'baslangic' => '2027-02-01', 'bitis' => '2027-02-03', 'fiyat' => ''];
+        self::assertSame(303, $this->post('/panel/takvim', ['durum' => 'kapali'] + $form)->status);
+        $closed = $this->rawTable('calendar_entries');
+
+        $response = $this->post('/panel/takvim', ['durum' => 'herkese-acik'] + $form);
+
+        self::assertSame(422, $response->status);
+        self::assertStringContainsString('Listeden geçerli bir seçenek seçin.', $response->body);
+        self::assertSame($closed, $this->rawTable('calendar_entries'), 'Kapatılan geceler açılmaz');
+
+        $tax = $this->post('/panel/ilan/' . $property->id . '/fiyat', ['islem' => 'vergi', 'ad' => 'Konaklama vergisi', 'tur' => 'bagis', 'hesap' => 'yuzde', 'deger' => '2']);
+        self::assertSame(422, $tax->status);
+        self::assertStringContainsString('Listeden geçerli bir seçenek seçin.', $tax->body);
+        $unitForm = $this->post('/panel/ilan/' . $property->id . '/odalar', [
+            'birim_id' => (string) $unit->id,
+            'ad' => $unit->name,
+            'oda_tipi' => $unit->roomType->value,
+            'kapasite' => (string) $unit->capacity,
+            'fiyat' => '1000',
+            'durum' => 'gizli',
+        ]);
+        self::assertSame(422, $unitForm->status);
+        self::assertStringContainsString('Listeden geçerli bir seçenek seçin.', $unitForm->body);
+    }
 }

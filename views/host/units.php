@@ -69,10 +69,11 @@ $val = function (string $key, string $default) use ($old): string {
                 </div>
                 <div class="col-6 col-md-3">
                     <label for="durum" class="form-label">Durum</label>
-                    <select class="form-select" id="durum" name="durum">
+                    <select class="form-select<?= $view->invalid($errors, 'durum') ?>" id="durum" name="durum">
                         <option value="aktif"<?= $view->selected($val('durum', $editing->status->value ?? 'aktif'), 'aktif') ?>>Aktif</option>
                         <option value="pasif"<?= $view->selected($val('durum', $editing->status->value ?? 'aktif'), 'pasif') ?>>Pasif</option>
                     </select>
+                    <?= $view->error($errors, 'durum') ?>
                 </div>
             </div>
             <div class="mt-3 d-flex gap-2">
