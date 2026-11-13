@@ -224,6 +224,8 @@ final class AuthService
             }
             $user->passwordHash = password_hash($new, PASSWORD_DEFAULT);
             $this->users->save($user);
+            // Parola değişince daha önce istenmiş sıfırlama bağlantıları da geçersiz olur (H-09).
+            $this->tokens->invalidateForUser($userId, $this->clock->now());
         });
     }
 

@@ -32,6 +32,7 @@ use App\Service\ReservationService;
 use App\Support\ClockInterface;
 use App\Support\DateRange;
 use App\Support\Decimal;
+use BackedEnum;
 use DateTimeImmutable;
 use InvalidArgumentException;
 
@@ -150,9 +151,9 @@ final class HostController extends Controller
     {
         $unitId = $request->nullableInt('birim_id');
         $roomType = RoomType::tryFrom($request->input('oda_tipi'));
-        $status = UnitStatus::tryFrom($request->input('durum')) ?? UnitStatus::Aktif;
         $price = $request->input('fiyat');
         try {
+            $status = $this->choice($request, 'durum', UnitStatus::class, UnitStatus::Aktif);
             if ($roomType === null) {
                 throw ValidationException::single('oda_tipi', 'Oda tipi seçin.');
             }
@@ -203,7 +204,7 @@ final class HostController extends Controller
                         $unitId,
                         $request->int('en_az_gece'),
                         $this->decimal($request->input('deger'), 'deger'),
-                        ValueType::tryFrom($request->input('deger_turu')) ?? ValueType::Yuzde,
+                        $this->choice($request, 'deger_turu', ValueType::class, ValueType::Yuzde),
                     );
                     break;
                 case 'vergi':
@@ -211,8 +212,8 @@ final class HostController extends Controller
                         $hostId,
                         $propertyId,
                         $request->input('ad'),
-                        PricingRuleType::tryFrom($request->input('tur')) ?? PricingRuleType::Vergi,
-                        CalcMethod::tryFrom($request->input('hesap')) ?? CalcMethod::Yuzde,
+                        $this->choice($request, 'tur', PricingRuleType::class, PricingRuleType::Vergi),
+                        $this->choice($request, 'hesap', CalcMethod::class, CalcMethod::Yuzde),
                         $this->decimal($request->input('deger'), 'deger'),
                     );
                     break;
@@ -291,7 +292,7 @@ final class HostController extends Controller
                 $unitId,
                 $this->date($request->input('baslangic'), 'baslangic'),
                 $this->date($request->input('bitis'), 'bitis'),
-                CalendarStatus::tryFrom($request->input('durum')) ?? CalendarStatus::Acik,
+                $this->choice($request, 'durum', CalendarStatus::class, CalendarStatus::Acik),
                 $price === '' ? null : Decimal::toInt($price),
             );
         } catch (ValidationException $e) {
@@ -527,7 +528,8 @@ final class HostController extends Controller
         }
         $ay = is_string($values['ay'] ?? null) ? $values['ay'] : '';
         $today = $this->clock->today();
-        [$year, $month] = preg_match('/^(\d{4})-(\d{2})$/', $ay, $m)
+        // Geçersiz ay (ör. 2026-00, 2026-13) bu ayı gösterir; ilan sayfasındaki takvimle aynı kural (H-06).
+        [$year, $month] = preg_match('/^(\d{4})-(\d{2})$/', $ay, $m) && (int) $m[2] >= 1 && (int) $m[2] <= 12
             ? [(int) $m[1], (int) $m[2]]
             : [(int) $today->format('Y'), (int) $today->format('n')];
 
@@ -568,6 +570,25 @@ final class HostController extends Controller
         } catch (InvalidArgumentException) {
             throw ValidationException::single($field, 'Geçerli bir tarih seçin.');
         }
+    }
+
+    /**
+     * Seçim alanı: boş gelirse varsayılan seçenek. Listede olmayan bir değer gönderilirse sessizce varsayılana
+     * dönülmez (ör. takvimde geçersiz durum geceleri açardı); anlaşılır bir hata verilir (H-08).
+     *
+     * @template T of BackedEnum
+     * @param class-string<T> $enum
+     * @param T $default
+     * @return T
+     */
+    private function choice(Request $request, string $field, string $enum, BackedEnum $default): BackedEnum
+    {
+        $value = trim($request->input($field));
+        if ($value === '') {
+            return $default;
+        }
+
+        return $enum::tryFrom($value) ?? throw ValidationException::single($field, 'Listeden geçerli bir seçenek seçin.');
     }
 
     private function decimal(string $value, string $field): int

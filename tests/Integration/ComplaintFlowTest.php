@@ -170,4 +170,32 @@ final class ComplaintFlowTest extends AppTestCase
         self::assertSame(ComplaintStatus::Cozuldu, $this->stored($id)->status);
         self::assertSame('İlan sahibiyle görüşüldü.', $this->stored($id)->adminNote);
     }
+
+    /**
+     * Hata kaydı H-10: şikâyette seçilen ilan, yazılan rezervasyonun ilanı değilse kayıt yanlış ilana yazılmaz;
+     * anlaşılır bir hata verilir. İlan boş bırakılırsa rezervasyonun ilanı kullanılır.
+     */
+    public function testPropertyMustMatchTheReservation(): void
+    {
+        $guest = $this->user();
+        $host = $this->user(Role::IlanSahibi);
+        $stayed = $this->property((int) $host->id);
+        $other = $this->property((int) $host->id);
+        $reservation = $this->bookAndPay((int) $guest->id, $this->unit((int) $stayed->id), '2026-11-20', '2026-11-22');
+        $service = $this->c->complaintService();
+        $before = count($this->c->complaints()->all());
+
+        try {
+            $service->create((int) $guest->id, (int) $other->id, $reservation->number, 'Odada sıcak su yoktu, kimse ilgilenmedi.');
+            self::fail('Uyuşmayan ilan reddedilmeliydi');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('ilan', $e->errors());
+        }
+        self::assertCount($before, $this->c->complaints()->all(), 'Kayıt oluşmaz');
+
+        $matching = $service->create((int) $guest->id, (int) $stayed->id, $reservation->number, 'Odada sıcak su yoktu, kimse ilgilenmedi.');
+        self::assertSame($stayed->id, $matching->propertyId);
+        $withoutProperty = $service->create((int) $guest->id, null, $reservation->number, 'Gece boyunca gürültü vardı, kimse ilgilenmedi.');
+        self::assertSame($stayed->id, $withoutProperty->propertyId);
+    }
 }

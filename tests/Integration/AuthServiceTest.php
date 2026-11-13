@@ -192,4 +192,26 @@ final class AuthServiceTest extends AppTestCase
         $auth->resetPassword($newer, 'YeniParola1');
         self::assertStringContainsString('artık geçerli değil', $this->errorsOf(fn () => $auth->usableResetToken($newer))['jeton'], 'Kullanılan bağlantı ikinci kez açılmaz');
     }
+
+    /**
+     * Hata kaydı H-09: profilden parola değiştirilince daha önce istenmiş sıfırlama bağlantısı da geçersiz olur.
+     * Yoksa e-postadaki eski bağlantıyla 60 dakika içinde parola yeniden değiştirilebilirdi.
+     */
+    #[Group('FR-04')]
+    #[Group('FR-31')]
+    public function testChangingThePasswordInvalidatesOpenResetLinks(): void
+    {
+        $auth = $this->c->authService();
+        $user = $auth->register('Derya', 'Kaya', 'derya@example.com', 'EskiParola1', Role::Musteri);
+        $token = $this->resetTokenFor('derya@example.com');
+        $auth->usableResetToken($token); // değişiklikten önce geçerli
+
+        $auth->changePassword((int) $user->id, 'EskiParola1', 'YeniParola2');
+
+        $errors = $this->errorsOf(fn () => $auth->usableResetToken($token));
+        self::assertArrayHasKey('jeton', $errors);
+        $errors = $this->errorsOf(fn () => $auth->resetPassword($token, 'BaskaParola3'));
+        self::assertArrayHasKey('jeton', $errors);
+        self::assertTrue(password_verify('YeniParola2', (string) $this->c->users()->findById((int) $user->id)?->passwordHash));
+    }
 }

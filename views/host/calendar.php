@@ -83,13 +83,13 @@ $first = new DateTimeImmutable($month . '-01');
                                 </div>
                                 <div class="col-6">
                                     <label for="durum" class="form-label small mb-0">Durum</label>
-                                    <select class="form-select" id="durum" name="durum">
+                                    <select class="form-select<?= $view->invalid($errors, 'durum') ?>" id="durum" name="durum">
                                         <option value="acik"<?= $view->selected($val('durum'), 'acik') ?>>Müsait</option>
                                         <option value="kapali"<?= $view->selected($val('durum'), 'kapali') ?>>Kapalı</option>
                                     </select>
                                 </div>
                             </div>
-                            <?php foreach (['baslangic', 'bitis', 'fiyat'] as $field): ?><?= $view->error($errors, $field) ?><?php endforeach; ?>
+                            <?php foreach (['baslangic', 'bitis', 'fiyat', 'durum'] as $field): ?><?= $view->error($errors, $field) ?><?php endforeach; ?>
                             <button type="submit" class="btn btn-success mt-3">KAYDET</button>
                             <div class="form-text">Beklemede veya Onaylandı rezervasyonu olan geceler kapatılamaz. Özel fiyat girilen gecede sezon ve hafta sonu farkı uygulanmaz.</div>
                         </form>

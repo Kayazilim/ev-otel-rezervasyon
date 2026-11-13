@@ -148,6 +148,12 @@ final class PriceRuleService
             if ($valueType === ValueType::Sabit && $value <= 0) {
                 $errors['deger'] = 'İndirim tutarı sıfırdan büyük olmalıdır.';
             }
+            // Aynı kapsamda aynı eşik ikinci kez tanımlanamaz; hangi indirimin uygulanacağı belirsiz kalırdı (H-07).
+            foreach ($this->priceRules->findByProperty($propertyId) as $other) {
+                if ($other->type === PriceRuleType::UzunKonaklama && $other->unitId === $unitId && $other->minNights === $minNights) {
+                    $errors['en_az_gece'] = sprintf('%d gece ve üzeri için zaten bir uzun konaklama kuralı var. Değiştirmek için önce onu silin.', $minNights);
+                }
+            }
             if ($errors !== []) {
                 throw new ValidationException($errors);
             }
@@ -194,6 +200,12 @@ final class PriceRuleService
             }
             if ($method !== CalcMethod::Yuzde && $value <= 0) {
                 $errors['deger'] = 'Tutar sıfırdan büyük olmalıdır.';
+            }
+            // Her vergi/ek ücret fiyata ayrı ayrı eklenir; aynı kalem iki kez eklenirse iki kez alınırdı (H-07).
+            foreach ($this->pricingRules->findByProperty($propertyId) as $other) {
+                if (Text::lower(trim($other->name)) === Text::lower(trim($name))) {
+                    $errors['ad'] = sprintf('"%s" adlı bir vergi/ek ücret zaten var. Değiştirmek için önce onu silin.', $other->name);
+                }
             }
             if ($errors !== []) {
                 throw new ValidationException($errors);

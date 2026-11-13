@@ -147,8 +147,13 @@ final class View
             . ($count > 0 ? ' <span class="text-body-secondary">· ' . $count . ' yorum</span>' : '');
     }
 
+    /** Seçili seçenek. Adres çubuğundan dizi gibi metin olmayan bir değer gelirse (ör. ?puan[]=1) hiçbir seçenek seçilmez (H-05). */
     public function selected(mixed $a, mixed $b): string
     {
+        if (!is_scalar($a) || !is_scalar($b)) {
+            return '';
+        }
+
         return (string) $a === (string) $b ? ' selected' : '';
     }
 

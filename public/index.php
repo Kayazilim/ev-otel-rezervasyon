@@ -15,6 +15,10 @@ if (PHP_SAPI === 'cli-server') {
     }
 }
 
+// Kullanıcıya teknik ayrıntı (dosya yolu, satır, yığın izi) gösterilmez; WAMP gibi geliştirme kurulumlarında
+// display_errors açık olsa da. Hatalar günlüğe yazılır, kullanıcı sade bir hata sayfası görür (H-05).
+ini_set('display_errors', '0');
+
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 $config = require dirname(__DIR__) . '/config/app.php';
