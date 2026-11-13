@@ -62,7 +62,12 @@ final class ComplaintService
                     throw new ForbiddenException('Yalnızca kendi rezervasyonunuz hakkında şikâyet oluşturabilirsiniz.');
                 }
                 $reservationId = $reservation->id;
-                $propertyId ??= $this->units->findById($reservation->unitId)?->propertyId;
+                $reservationProperty = $this->units->findById($reservation->unitId)?->propertyId;
+                // Seçilen ilan rezervasyonun ilanı değilse şikâyet yanlış ilana yazılırdı (H-10).
+                if ($propertyId !== null && $reservationProperty !== null && $propertyId !== $reservationProperty) {
+                    throw ValidationException::single('ilan', 'Seçtiğiniz ilan bu rezervasyonun ilanı değil. İlanı boş bırakın ya da doğru ilanı seçin.');
+                }
+                $propertyId ??= $reservationProperty;
             }
             if ($propertyId !== null && $this->properties->findById($propertyId) === null) {
                 throw new NotFoundException('İlan bulunamadı.');
