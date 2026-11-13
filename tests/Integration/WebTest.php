@@ -288,7 +288,7 @@ final class WebTest extends AppTestCase
     public function testIdleSessionTimesOut(): void
     {
         $this->loginAs('ali@evotel.test');
-        $_SESSION['_last_activity'] = $this->clock->now()->modify('-31 minutes')->getTimestamp();
+        $_SESSION['_last_activity'] = $this->clock->now()->modify('-61 minutes')->getTimestamp();
 
         $response = $this->get('/rezervasyonlarim');
 
@@ -307,13 +307,13 @@ final class WebTest extends AppTestCase
         $lastAction = $this->clock->now()->getTimestamp();
 
         // Sekme açık kalır: bildirim sayacı kendiliğinden yenilenir, kullanıcı hiçbir şey yapmaz.
-        foreach ([10, 20, 30] as $minute) {
+        foreach ([10, 20, 30, 40, 50, 60] as $minute) {
             $this->clock->advance('+10 minutes');
             self::assertSame(200, $this->get('/parca/bildirim-sayaci')->status, $minute . '. dakikada oturum henüz açık');
             self::assertSame($lastAction, $_SESSION['_last_activity'], 'Sayfa bölümü isteği süreyi uzatmaz');
         }
         $this->clock->advance('+1 minute');
-        self::assertSame(401, $this->get('/parca/bildirim-sayaci')->status, '31. dakikada oturum kapanır');
+        self::assertSame(401, $this->get('/parca/bildirim-sayaci')->status, '61. dakikada oturum kapanır');
         self::assertArrayNotHasKey('user_id', $_SESSION);
 
         // Kullanıcının kendi açtığı sayfa ise süreyi yeniler.
@@ -331,7 +331,7 @@ final class WebTest extends AppTestCase
     public function testTimedOutBackgroundRequestGets401InsteadOfTheLoginPage(): void
     {
         $this->loginAs('ali@evotel.test');
-        $_SESSION['_last_activity'] = $this->clock->now()->modify('-31 minutes')->getTimestamp();
+        $_SESSION['_last_activity'] = $this->clock->now()->modify('-61 minutes')->getTimestamp();
         $fragment = $this->get('/parca/bildirim-sayaci');
         self::assertSame(401, $fragment->status);
         self::assertSame('Oturum gerekli.', $fragment->body, 'Bölümün içine giriş sayfası basılmaz');
@@ -340,13 +340,13 @@ final class WebTest extends AppTestCase
         self::assertStringContainsString('Oturumunuz uzun süre işlem yapılmadığı için kapatıldı', $this->get('/giris')->body);
 
         $this->loginAs('ali@evotel.test');
-        $_SESSION['_last_activity'] = $this->clock->now()->modify('-31 minutes')->getTimestamp();
+        $_SESSION['_last_activity'] = $this->clock->now()->modify('-61 minutes')->getTimestamp();
         $api = $this->get('/api/musaitlik', ['birim' => '1', 'giris' => '2027-05-19', 'cikis' => '2027-05-22', 'kisi' => '1']);
         self::assertSame(401, $api->status);
         self::assertSame('Oturum gerekli.', $this->json($api)['hata'], 'JSON uç noktası hatayı JSON olarak verir');
 
         $this->loginAs('ali@evotel.test');
-        $_SESSION['_last_activity'] = $this->clock->now()->modify('-31 minutes')->getTimestamp();
+        $_SESSION['_last_activity'] = $this->clock->now()->modify('-61 minutes')->getTimestamp();
         $fetch = $this->fetchPost('/favori/1', ['donus' => '/ilan/1']);
         self::assertSame(401, $fetch->status);
         self::assertArrayNotHasKey('Location', $fetch->headers);
@@ -743,5 +743,38 @@ final class WebTest extends AppTestCase
         ]);
         self::assertSame(422, $unitForm->status);
         self::assertStringContainsString('Listeden geçerli bir seçenek seçin.', $unitForm->body);
+    }
+
+    /**
+     * Bonus (oturum zaman aşımı, 60 dakika): sayfanın altındaki sayaç kalan süreyi gösterir. Sayfa yenilenince ve
+     * sayfada tıklanınca (POST /api/oturum) süre yeniden başlar; GET /api/oturum yalnızca kalan süreyi söyler,
+     * süreyi uzatmaz. Sayaç sıfıra indiğinde sunucu da oturumu kapatır.
+     */
+    #[Group('NFR-15')]
+    public function testSessionCounterShowsTheTimeLeftAndAClickRestartsIt(): void
+    {
+        self::assertStringNotContainsString('id="oturum-sayaci"', $this->get('/')->body, 'Misafirde sayaç yok');
+        $this->loginAs('ali@evotel.test');
+        $page = $this->get('/rezervasyonlarim')->body;
+        self::assertStringContainsString('data-kalan="3600"', $page);
+        self::assertStringContainsString('60:00', $page);
+
+        $this->clock->advance('+20 minutes');
+        $status = $this->get('/api/oturum');
+        self::assertSame(2400, $this->json($status)['kalan_saniye'], 'Sorgu süreyi uzatmaz');
+
+        $click = $this->post('/api/oturum', []);
+        self::assertSame(200, $click->status);
+        self::assertSame(3600, $this->json($click)['kalan_saniye'], 'Tıklama süreyi yeniden başlatır');
+        self::assertSame($this->clock->now()->getTimestamp(), $_SESSION['_last_activity']);
+        self::assertSame(419, $this->post('/api/oturum', [], false)->status, 'Jetonsuz istek süreyi uzatamaz');
+
+        // Sınır: 60. dakikada açık, 61. dakikada kapalı
+        $this->clock->advance('+60 minutes');
+        self::assertSame(0, $this->json($this->get('/api/oturum'))['kalan_saniye']);
+        $this->clock->advance('+1 minute');
+        self::assertSame(401, $this->get('/api/oturum')->status);
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+        self::assertStringContainsString('Oturumunuz uzun süre işlem yapılmadığı için kapatıldı', $this->get('/giris')->body);
     }
 }

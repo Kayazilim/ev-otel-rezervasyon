@@ -619,7 +619,7 @@ final class Container
         return match ($class) {
             ApiController::class => new ApiController($v, $s, $a, $this->reservationService(), $this->clock),
             HomeController::class => new HomeController($v, $s, $a, $this->propertyService()),
-            AuthController::class => new AuthController($v, $s, $a, $this->authService()),
+            AuthController::class => new AuthController($v, $s, $a, $this->authService(), $this->clock),
             MailboxController::class => new MailboxController($v, $s, $a, $this->mailbox()),
             PropertyController::class => new PropertyController(
                 $v,

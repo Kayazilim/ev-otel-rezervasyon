@@ -196,6 +196,15 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
             <?php endif; ?>
         </span>
     </div>
+    <?php if ($currentUser !== null): ?>
+        <?php $kalan = (int) ($sessionRemaining ?? 3600); ?>
+        <div class="container mt-2">
+            <div id="oturum-sayaci" class="oturum-sayaci" role="timer" data-kalan="<?= $kalan ?>">
+                Oturumun kapanmasına: <strong data-kalan-yazi><?= sprintf('%02d:%02d', intdiv($kalan, 60), $kalan % 60) ?></strong>
+                <span class="d-none d-sm-inline">· Sayfada bir yere tıklamak ya da sayfayı yenilemek süreyi yeniden başlatır.</span>
+            </div>
+        </div>
+    <?php endif; ?>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
@@ -268,6 +277,71 @@ async function bildirimYenile() {
 }
 bildirimYenile();
 setInterval(bildirimYenile, 5000);
+
+// Bonus (oturum zaman aşımı): sayfanın altındaki sayaç oturumun kapanmasına kalan süreyi gösterir.
+// Sayfa yenilenince ve sayfada bir yere tıklanınca süre yeniden başlar (tıklama sunucuya bildirilir; karar sunucudadır).
+// Sayaç sıfıra inince sunucuya sorulur: başka sekmede işlem yapılmadıysa oturum kapanmıştır, giriş sayfasına gidilir.
+(function () {
+    const kutu = document.getElementById('oturum-sayaci');
+    if (!kutu) {
+        return;
+    }
+    const yazi = kutu.querySelector('[data-kalan-yazi]');
+    const adres = '<?= e($view->url('/api/oturum')) ?>';
+    const jeton = '<?= e($csrfToken ?? '') ?>';
+    let bitis = Date.now() + Number(kutu.dataset.kalan) * 1000;
+    let sonBildirim = Date.now();
+    let soruluyor = false;
+
+    async function sunucuya(yontem) {
+        const ayar = {method: yontem, headers: {'Accept': 'application/json', 'X-Requested-With': 'fetch'}};
+        if (yontem === 'POST') {
+            const veri = new FormData();
+            veri.append('_csrf', jeton);
+            ayar.body = veri;
+        }
+        let yanit;
+        try {
+            yanit = await fetch(adres, ayar);
+        } catch (hata) {
+            return null; // bağlantı yok: sayaç yerel olarak sürer, sonra yeniden sorulur
+        }
+        if (yanit.status === 401) {
+            window.location.href = girisAdresi; // oturum kapandı; giriş sayfası nedenini söyler
+            return null;
+        }
+        if (!yanit.ok) {
+            return null;
+        }
+        const veri = await yanit.json();
+        bitis = Date.now() + veri.kalan_saniye * 1000;
+        return veri.kalan_saniye;
+    }
+
+    function goster() {
+        const kalan = Math.max(0, Math.ceil((bitis - Date.now()) / 1000));
+        yazi.textContent = String(Math.floor(kalan / 60)).padStart(2, '0') + ':' + String(kalan % 60).padStart(2, '0');
+        kutu.classList.toggle('oturum-az', kalan <= 300);
+        if (kalan === 0 && !soruluyor) {
+            soruluyor = true;
+            // Sunucu süreyi saniyenin sonunda doldurur; bir saniye bekleyip sorulur (GET süreyi uzatmaz).
+            setTimeout(function () {
+                sunucuya('GET').finally(function () { soruluyor = false; });
+            }, 1500);
+        }
+    }
+
+    document.addEventListener('click', function () {
+        // Art arda tıklamalarda sunucuya en çok 10 saniyede bir bildirilir.
+        if (Date.now() - sonBildirim < 10000) {
+            return;
+        }
+        sonBildirim = Date.now();
+        sunucuya('POST');
+    });
+    goster();
+    setInterval(goster, 1000);
+})();
 </script>
 <?php endif; ?>
 </body>
