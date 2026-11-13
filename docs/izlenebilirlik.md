@@ -4,9 +4,9 @@
 > Testlerin kuralı gerçekten ölçtüğünün kanıtı (kural geçici olarak bozulunca kırılan testler): [kural-bozma-deneyi.md](kural-bozma-deneyi.md).
 > Kaynaklar: [SRS v2.3](srs.md) kodları, testlerdeki `#[Group('FR-18')]` öznitelikleri ve test adlarındaki kodlar (ör. `testT05...`, `testCs10...`). Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group FR-18`.
 
-Üretilme: 13.11.2026 18:10. Test metodu sayısı: 201.
-- JSON deposunda son çalıştırma: 201 test metodu, 194 geçti, 0 kaldı, 7 atlandı.
-- MySQL deposunda son çalıştırma: 201 test metodu, 201 geçti, 0 kaldı, 0 atlandı.
+Üretilme: 13.11.2026 22:19. Test metodu sayısı: 202.
+- JSON deposunda son çalıştırma: 202 test metodu, 195 geçti, 0 kaldı, 7 atlandı.
+- MySQL deposunda son çalıştırma: 202 test metodu, 202 geçti, 0 kaldı, 0 atlandı.
 
 ## Özet
 
@@ -133,7 +133,7 @@ Hikâye → gereksinim eşlemesi [SRS Ek B.1](srs.md) tablosundan okunur; bir hi
 | **NFR-12** | Form alanları etiketlenmeli, klavye ile temel gezinme desteklenmeli ve metin kontrastı WCAG 2.1 AA düzeyinde (en az 4… | `WebTest::testFormFieldsAreLabelled`<br>`WebTest::testSelectsDoNotSubmitOnChange` | ✓ 2/2 | ✓ 2/2 |
 | **NFR-13** | Rezervasyon oluşturma işleminin (çakışma kontrolü dahil) yüzde 95'i normal yükte 2 saniye içinde tamamlanmalıdır; kil… | `MySqlStorageTest::testLockUnitHoldsARowLockUntilTheTransactionEnds`<br>`MySqlStorageTest::testLockWaitTimeoutIsRetriedTwiceThenReportedAsBusy`<br>`SettingsTest::testConfiguredNumbersMatchTheSrs` | ✓ 1/3 | ✓ 3/3 |
 | **NFR-14** | SQL işlemleri parametreli sorgularla (PDO prepared statements) yapılmalı; View çıktıları HTML'e kaçışlanmalı (XSS); d… | `WebTest::testPostWithoutCsrfTokenIsRejected`<br>`WebTest::testUserInputIsEscapedInOutput` | ✓ 2/2 | ✓ 2/2 |
-| **NFR-15** | Girişte oturum kimliği yenilenmeli (session fixation); art arda 5 başarısız girişten sonra giriş 15 dakika kısıtlanma… | `AuthServiceTest::testFiveFailedLoginsLockForFifteenMinutes`<br>`LoggingAndAuditTest::testPasswordsAndResetTokensNeverReachTheLog`<br>`SettingsTest::testConfiguredNumbersMatchTheSrs`<br>`WebTest::testIdleSessionTimesOut`<br>`WebTest::testPolledFragmentDoesNotKeepTheSessionAlive`<br>`WebTest::testReservationStatusIsServedAsJsonToAllowedUsersOnly`<br>`WebTest::testTimedOutBackgroundRequestGets401InsteadOfTheLoginPage` | ✓ 7/7 | ✓ 7/7 |
+| **NFR-15** | Girişte oturum kimliği yenilenmeli (session fixation); art arda 5 başarısız girişten sonra giriş 15 dakika kısıtlanma… | `AuthServiceTest::testFiveFailedLoginsLockForFifteenMinutes`<br>`LoggingAndAuditTest::testPasswordsAndResetTokensNeverReachTheLog`<br>`SettingsTest::testConfiguredNumbersMatchTheSrs`<br>`WebTest::testIdleSessionTimesOut`<br>`WebTest::testPolledFragmentDoesNotKeepTheSessionAlive`<br>`WebTest::testReservationStatusIsServedAsJsonToAllowedUsersOnly`<br>`WebTest::testSessionCounterShowsTheTimeLeftAndAClickRestartsIt`<br>`WebTest::testTimedOutBackgroundRequestGets401InsteadOfTheLoginPage` | ✓ 8/8 | ✓ 8/8 |
 | **NFR-16** | BookingConflictService, ReservationService, AvailabilityService ve PricingService en az %90 satır kapsamıyla PHPUnit… | `ReservationServiceRulesTest::testInvalidTransitionFromInconsistentDataIsRejectedAndAudited` | ✓ 1/1 | ✓ 1/1 |
 | **NFR-17** | Bekletme süresi dolumu ve geçmiş tarih kontrolü gibi tüm zaman kararları sunucu saatiyle ve Europe/Istanbul saat dili… | `LoggingAndAuditTest::testHoldExpiresExactlyAtServerTime`<br>`SettingsTest::testServerTimezoneIsIstanbul` | ✓ 2/2 | ✓ 2/2 |
 | **NFR-18** | Çakışma reddi, süre dolumu ve durum geçişleri hassas veri içermeden günlüğe yazılmalı; tutarlılık ihlali (aynı birim… | `LoggingAndAuditTest::testConflictsExpiriesAndTransitionsAreLoggedWithoutPersonalData`<br>`LoggingAndAuditTest::testConsistencyAuditFindsADeliberateDoubleBooking` | ✓ 2/2 | ✓ 2/2 |
