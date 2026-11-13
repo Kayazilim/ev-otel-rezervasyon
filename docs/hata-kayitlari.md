@@ -20,12 +20,12 @@ Yeni bir hata bulunduğunda aynı biçimde sıradaki numarayla (`H-11`, `H-12`�
 | H-02 | 12.11 | Parola sıfırlama bağlantısı 60 dakikadan sonra da formu açıyordu | Kaan Şahin elle denerken | [#88](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/88) |
 | H-03 | 08.11 | Sıfırlama e-postası görünmüyordu; kayıtlı olmayan adreste de "gönderildi" deniyordu | Kaan Şahin elle denerken | [#81](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/81) |
 | H-04 | 08.11 | Gönderilen şikâyetin nereye düştüğü belli değildi | Kaan Şahin elle denerken | [#83](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/83) |
-| H-05 | 13.11 | Adreste dizi biçimli değer sayfaya PHP uyarısını dosya yoluyla basıyordu | Otomatik tarama | [Ekip dolduracak: PR bağlantısı] |
-| H-06 | 13.11 | İlan sahibi takviminde geçersiz ay sunucu hatası veriyordu | Otomatik tarama | [Ekip dolduracak: PR bağlantısı] |
-| H-07 | 13.11 | Aynı vergi ve aynı uzun konaklama eşiği tekrar eklenebiliyordu; vergi iki kez alınıyordu | Otomatik form taraması | [Ekip dolduracak: PR bağlantısı] |
-| H-08 | 13.11 | Listede olmayan seçim değeri sessizce varsayılana dönüyordu | Otomatik form taraması | [Ekip dolduracak: PR bağlantısı] |
-| H-09 | 13.11 | Profilden parola değişince eski sıfırlama bağlantısı geçerli kalıyordu | Kod okuma | [Ekip dolduracak: PR bağlantısı] |
-| H-10 | 13.11 | Şikâyette seçilen ilan rezervasyonun ilanı olmasa da kayıt açılıyordu | Kod okuma | [Ekip dolduracak: PR bağlantısı] |
+| H-05 | 13.11 | Adreste dizi biçimli değer sayfaya PHP uyarısını dosya yoluyla basıyordu | Otomatik tarama | [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89) |
+| H-06 | 13.11 | İlan sahibi takviminde geçersiz ay sunucu hatası veriyordu | Otomatik tarama | [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89) |
+| H-07 | 13.11 | Aynı vergi ve aynı uzun konaklama eşiği tekrar eklenebiliyordu; vergi iki kez alınıyordu | Otomatik form taraması | [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89) |
+| H-08 | 13.11 | Listede olmayan seçim değeri sessizce varsayılana dönüyordu | Otomatik form taraması | [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89) |
+| H-09 | 13.11 | Profilden parola değişince eski sıfırlama bağlantısı geçerli kalıyordu | Kod okuma | [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89) |
+| H-10 | 13.11 | Şikâyette seçilen ilan rezervasyonun ilanı olmasa da kayıt açılıyordu | Kod okuma | [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89) |
 
 13.11 denetiminde uygulama, gerçek veriye dokunmadan geçici bir veri klasörüyle çalıştırıldı. Dört rolle (misafir, müşteri, ilan sahibi, yönetici) her sayfa geçersiz tarih, sayı, dizi ve uzun metinle istendi (7332 istek), her form tuhaf alan değerleriyle gönderildi (1351 istek). Başka kullanıcının ilanını, odasını, fiyat kuralını, takvimini ve rezervasyonunu değiştirme denemelerinin (23 deneme) hepsi 403 ile reddedildi; veri dosyaları değişmedi.
 
@@ -91,7 +91,7 @@ Yeni bir hata bulunduğunda aynı biçimde sıradaki numarayla (`H-11`, `H-12`�
 | Düzeltme | `View::selected()` metin olmayan değerde hiçbir seçeneği seçmez. Genel önlem olarak `Kernel`, istek işlenirken oluşan PHP uyarılarını istisnaya çevirir: ayrıntı günlüğe yazılır, kullanıcı sade hata sayfası görür. `@` ile susturulan uyarılar ve kullanımdan kalkma bildirimleri bunun dışındadır. `public/index.php` de `display_errors` ayarını kapatır. |
 | Doğrulayan testler | `WebTest::testArrayValuesInTheQueryStringDoNotLeakWarnings`, `KernelTest::testWarningsBecomeExceptions`, `KernelTest::testSilencedWarningsAndDeprecationsAreLeftAlone`. Düzeltme geri alınınca test "View.php:152 Array to string conversion" uyarısıyla kırıldı. |
 | Canlı deneme | `/ara?puan[]=1` 200 döndü, sayfada uyarı yok. Tarama yeniden çalıştırıldı: 7332 istekte sorun yok, günlükte hata yok. |
-| Durum | Düzeltildi (dal `hata-kayitlari-gecmis-ve-denetim`). **[Ekip dolduracak: PR bağlantısı]** |
+| Durum | Düzeltildi: [Kayazilim/ev-otel-rezervasyon](https://github.com/Kayazilim/ev-otel-rezervasyon), dal `hata-kayitlari-gecmis-ve-denetim`, PR [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89). |
 
 ## H-06 · İlan sahibi takviminde geçersiz ay sunucu hatası veriyor
 
@@ -104,7 +104,7 @@ Yeni bir hata bulunduğunda aynı biçimde sıradaki numarayla (`H-11`, `H-12`�
 | Düzeltme | Takvim sayfası da yalnızca 1–12 arasındaki ayı kabul eder; geçersizse bu ayı gösterir. |
 | Doğrulayan testler | `WebTest::testHostCalendarShowsThisMonthForAnInvalidMonth` (2026-00, 2026-13, 2026-99 → 200 ve "Kasım 2026"; 2027-01 → "Ocak 2027"). |
 | Canlı deneme | `?ay=2026-00` ve `?ay=2026-13` 200 döndü ve bu ayı gösterdi. |
-| Durum | Düzeltildi (dal `hata-kayitlari-gecmis-ve-denetim`). **[Ekip dolduracak: PR bağlantısı]** |
+| Durum | Düzeltildi: [Kayazilim/ev-otel-rezervasyon](https://github.com/Kayazilim/ev-otel-rezervasyon), dal `hata-kayitlari-gecmis-ve-denetim`, PR [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89). |
 
 ## H-07 · Aynı vergi ve aynı uzun konaklama eşiği tekrar eklenebiliyor
 
@@ -116,7 +116,7 @@ Yeni bir hata bulunduğunda aynı biçimde sıradaki numarayla (`H-11`, `H-12`�
 | Kök neden | `PriceRuleService::addPricingRule` ve `addLongStayRule` var olan kuralları denetlemiyordu. Sezon kuralında çakışma, hafta sonu kuralında tekillik denetimi vardı; bu ikisinde yoktu. |
 | Düzeltme | Aynı adda (büyük/küçük harf ve boşluk farkı gözetilmeden) ikinci bir vergi/ek ücret eklenemez. Aynı kapsamda (ilan geneli ya da aynı oda) aynı gece eşiği ikinci kez tanımlanamaz. İkisinde de anlaşılır bir mesaj verilir. |
 | Doğrulayan testler | `PriceRuleServiceTest::testSameTaxCannotBeAddedTwice` (1 gece 1.000 TL + %10 KDV = 1.100 TL; vergi bir kez), `testSameLongStayThresholdCannotBeAddedTwice`. |
-| Durum | Düzeltildi (dal `hata-kayitlari-gecmis-ve-denetim`). **[Ekip dolduracak: PR bağlantısı]** |
+| Durum | Düzeltildi: [Kayazilim/ev-otel-rezervasyon](https://github.com/Kayazilim/ev-otel-rezervasyon), dal `hata-kayitlari-gecmis-ve-denetim`, PR [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89). |
 
 ## H-08 · Listede olmayan seçim değeri sessizce varsayılana dönüyor
 
@@ -128,7 +128,7 @@ Yeni bir hata bulunduğunda aynı biçimde sıradaki numarayla (`H-11`, `H-12`�
 | Kök neden | `HostController` bu alanları `tryFrom(...) ?? varsayılan` ile okuyordu. Ödevin 4. bölümü form girdilerinin sunucuda doğrulanmasını istiyor. |
 | Düzeltme | Alan boşsa varsayılan kullanılır. Doluysa listedeki bir değer olmalıdır; değilse "Listeden geçerli bir seçenek seçin." hatası verilir ve kayıt değişmez. Takvim ve oda formunda hata alanın altında gösterilir. |
 | Doğrulayan testler | `WebTest::testUnknownChoiceValuesAreRejectedInsteadOfDefaulted` (takvim, vergi ve oda formu; kapatılan geceler açılmaz). |
-| Durum | Düzeltildi (dal `hata-kayitlari-gecmis-ve-denetim`). **[Ekip dolduracak: PR bağlantısı]** |
+| Durum | Düzeltildi: [Kayazilim/ev-otel-rezervasyon](https://github.com/Kayazilim/ev-otel-rezervasyon), dal `hata-kayitlari-gecmis-ve-denetim`, PR [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89). |
 
 ## H-09 · Profilden parola değişince eski sıfırlama bağlantısı geçerli kalıyor
 
@@ -139,7 +139,7 @@ Yeni bir hata bulunduğunda aynı biçimde sıradaki numarayla (`H-11`, `H-12`�
 | Kök neden | Yeni bir sıfırlama isteği eski bağlantıları geçersiz kılıyordu, ama `AuthService::changePassword` bunu yapmıyordu. |
 | Düzeltme | Parola değişince kullanıcının açık sıfırlama bağlantıları kullanılmış sayılır. |
 | Doğrulayan testler | `AuthServiceTest::testChangingThePasswordInvalidatesOpenResetLinks`. |
-| Durum | Düzeltildi (dal `hata-kayitlari-gecmis-ve-denetim`). **[Ekip dolduracak: PR bağlantısı]** |
+| Durum | Düzeltildi: [Kayazilim/ev-otel-rezervasyon](https://github.com/Kayazilim/ev-otel-rezervasyon), dal `hata-kayitlari-gecmis-ve-denetim`, PR [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89). |
 
 ## H-10 · Şikâyette seçilen ilan rezervasyonla uyuşmasa da kayıt açılıyor
 
@@ -150,7 +150,7 @@ Yeni bir hata bulunduğunda aynı biçimde sıradaki numarayla (`H-11`, `H-12`�
 | Kök neden | `ComplaintService::create` rezervasyonun ilanını yalnızca ilan boş bırakıldığında kullanıyordu; ikisi birden verildiğinde uyuşup uyuşmadıklarına bakmıyordu. |
 | Düzeltme | İkisi uyuşmazsa "Seçtiğiniz ilan bu rezervasyonun ilanı değil" hatası verilir ve kayıt açılmaz. İlan boşsa rezervasyonun ilanı kullanılır. |
 | Doğrulayan testler | `ComplaintFlowTest::testPropertyMustMatchTheReservation`. |
-| Durum | Düzeltildi (dal `hata-kayitlari-gecmis-ve-denetim`). **[Ekip dolduracak: PR bağlantısı]** |
+| Durum | Düzeltildi: [Kayazilim/ev-otel-rezervasyon](https://github.com/Kayazilim/ev-otel-rezervasyon), dal `hata-kayitlari-gecmis-ve-denetim`, PR [#89](https://github.com/Kayazilim/ev-otel-rezervasyon/pull/89). |
 
 ## Önceki incelemelerde bulunan hatalar
 
