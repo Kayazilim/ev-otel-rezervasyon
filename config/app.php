@@ -51,7 +51,7 @@ $ayarlar = [
     // Gerçek bir sunucuda EVOTEL_POSTA_KUTUSU=0 ile kapatılmalıdır.
     'mail_inbox' => $ortam('EVOTEL_POSTA_KUTUSU', '1') === '1',
 
-    'session_timeout_minutes' => 30,          // bonus: oturum zaman aşımı
+    'session_timeout_minutes' => 60,          // bonus: oturum zaman aşımı (sayfanın altındaki sayaç)
     'hold_minutes_instant' => 10,             // BR-15: anında mod bekletme
     'hold_hours_approval' => 24,              // BR-15: onaylı mod bekletme
     'max_nights' => 30,                       // BR-14

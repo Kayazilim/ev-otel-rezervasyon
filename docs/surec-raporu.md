@@ -48,7 +48,7 @@ Tablodaki bilgiler git geçmişinden alındı. Aşama 2 kodu, Kaan Şahin taraf�
 
 ## 5. Testler
 
-- **Sayı:** ekip deposundaki yalnızca JSON sürümünde 246 test (1789 doğrulama); MySQL depo sınıflarının da bulunduğu Kaan Şahin deposunda JSON ile 253 test (1830 doğrulama; MySQL'e özel 7 test JSON'da atlanır) ve MySQL 8.4 ile 253 test (1884 doğrulama), hepsi geçti. Komut: `vendor/bin/phpunit` (veya `composer test`).
+- **Sayı:** ekip deposundaki yalnızca JSON sürümünde 247 test (1814 doğrulama); MySQL depo sınıflarının da bulunduğu Kaan Şahin deposunda JSON ile 254 test (1855 doğrulama; MySQL'e özel 7 test JSON'da atlanır) ve MySQL 8.4 ile 254 test (1909 doğrulama), hepsi geçti. Komut: `vendor/bin/phpunit` (veya `composer test`).
 - **Önemli sınır durumları:**
   - Çıkış günü yeni girişe açıktır: 10–12 rezervasyonu varken 12–14 kabul edilir, 11–13 reddedilir (`BookingConflictServiceTest::testCheckOutDayIsFreeForTheNextGuest`, `ReservationRepositoryContractTest::testOverlapQueryUsesHalfOpenInterval`).
   - Bekletme süresi saniyesi saniyesine sınanır: bitişten 1 saniye önce geçerli, 1 saniye sonra geçersizdir (`testExpiredHoldDoesNotBlockEvenBeforeCleanup`).

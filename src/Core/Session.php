@@ -14,7 +14,7 @@ final class Session
     private const LAST_ACTIVITY = '_last_activity';
     private const FORM = '_form';
 
-    public function __construct(private readonly int $timeoutMinutes = 30)
+    public function __construct(private readonly int $timeoutMinutes = 60)
     {
     }
 
@@ -83,6 +83,23 @@ final class Session
         $last = $this->get(self::LAST_ACTIVITY);
 
         return is_int($last) && ($now - $last) > $this->timeoutMinutes * 60;
+    }
+
+    /**
+     * Oturumun kapanmasına kalan süre (saniye). Sayfanın altındaki sayaç bunu gösterir; son işlem zamanı
+     * yoksa (ör. yeni giriş) tam süre döner.
+     */
+    public function remainingSeconds(int $now): int
+    {
+        $last = $this->get(self::LAST_ACTIVITY);
+        $limit = $this->timeoutMinutes * 60;
+
+        return is_int($last) ? max(0, $limit - ($now - $last)) : $limit;
+    }
+
+    public function timeoutSeconds(): int
+    {
+        return $this->timeoutMinutes * 60;
     }
 
     public function touch(int $now): void

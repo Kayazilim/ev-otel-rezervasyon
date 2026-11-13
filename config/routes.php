@@ -44,6 +44,8 @@ return static function (Router $r): void {
     $r->get('/posta-kutusu', [MailboxController::class, 'index']);                   // geliştirme: simüle e-postalar (yalnızca yerelden)
     $r->get('/posta-kutusu/{ileti}', [MailboxController::class, 'show']);
     $r->post('/cikis', [AuthController::class, 'logout'], 'auth');
+    $r->get('/api/oturum', [AuthController::class, 'sessionStatus'], 'auth');            // oturum sayacı: kalan süre (süreyi uzatmaz)
+    $r->post('/api/oturum', [AuthController::class, 'extendSession'], 'auth');          // oturum sayacı: sayfada tıklama süreyi yeniler
 
     // Kayıtlı müşteri
     $r->get('/rezervasyon/onizleme', [ReservationController::class, 'preview'], $guest);

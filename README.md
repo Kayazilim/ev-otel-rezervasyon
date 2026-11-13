@@ -150,7 +150,7 @@ composer test
 
 | Komut | Ne yapar |
 | --- | --- |
-| `composer test` | Tüm PHPUnit testleri, JSON deposunda (253 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
+| `composer test` | Tüm PHPUnit testleri, JSON deposunda (254 test; 50 paralel süreçli eşzamanlılık testleri dahil) |
 | `composer test:mysql` | Aynı testler MySQL'de (`evotel_test` veritabanı; `EVOTEL_TEST_DB_HOST/PORT/USER/PASSWORD`). Testler her seferinde tabloları boşalttığı için adı `_test` ile bitmeyen veritabanında çalışmaz. |
 | `composer test:hizli` | Eşzamanlılık testleri hariç |
 | `composer kapsam` | Satır kapsamı (Xdebug gerekir; HTML rapor `coverage/`) |
@@ -159,7 +159,7 @@ composer test
 | `composer analiz` | PHPStan statik analiz (seviye 6; `src`, `bin`, `config`, `tests`) |
 | `composer stil` / `composer stil:duzelt` | PSR-12 kod stili denetimi / otomatik düzeltme |
 
-Son çalıştırma (13.11.2026): JSON deposunda 253 test / 1830 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 253 test / 1884 doğrulama, hepsi geçti. Kural bozma deneyinde 7 kuralın 7'sinde ilgili testler kırıldı. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,4 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
+Son çalıştırma (13.11.2026): JSON deposunda 254 test / 1855 doğrulama (MySQL'e özel 7 test atlanır), MySQL 8.4'te 254 test / 1909 doğrulama, hepsi geçti. Kural bozma deneyinde 7 kuralın 7'sinde ilgili testler kırıldı. PHPStan ve PHPCS hatasız. NFR-16 satır kapsamı: BookingConflictService %96,4 · ReservationService %99,7 · AvailabilityService %98,4 · PricingService %96,8.
 
 Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group FR-18` (her test doğruladığı gereksinim kodunu `#[Group]` olarak taşır).
 
@@ -202,7 +202,7 @@ Bir gereksinimin testlerini çalıştırmak için: `vendor/bin/phpunit --group F
 | **Eşzamanlılık:** transaction ve satır kilidi | MySQL: `BEGIN … SELECT … FOR UPDATE … COMMIT`, kilit bekleme 5 sn, 2 yeniden deneme; JSON: dosya kilidi; koşullu güncelleme + `UNIQUE(birim, gece)`; 50 süreçli testler |
 | **Güvenlik:** hazırlıklı ifadeler, `password_hash`, XSS kaçışı, CSRF, `session_regenerate_id`, her işlemde yetki | `MySqlDatabase` (`ATTR_EMULATE_PREPARES=false`), `AuthService`, `e()`, `Kernel` (CSRF), `Auth::login` ve parola değişiminde oturum kimliği yenileme, rota yetkisi + servislerde sahiplik denetimi |
 | **Etkileşim:** JSON döndüren AJAX ucu | `GET /api/musaitlik` (`ApiController`), `GET /api/rezervasyon/{no}/durum` (JSON ile kısmi yenileme) + 3 kendiliğinden yenilenen HTML bölümü (`/parca/...`); beklenmeyen yanıtta kullanıcıya uyarı |
-| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (253 test), [docs/izlenebilirlik.md](docs/izlenebilirlik.md), [kural bozma deneyi](docs/kural-bozma-deneyi.md) |
+| **Test:** çekirdek için PHPUnit, izlenebilirlik tablosu | `tests/` (254 test), [docs/izlenebilirlik.md](docs/izlenebilirlik.md), [kural bozma deneyi](docs/kural-bozma-deneyi.md) |
 | **Kod kalitesi:** PHPStan, hatasız çalışma, anlaşılır hata mesajları | `composer analiz` (seviye 6, testler dahil), alan bazlı doğrulama mesajları, JSON uçta JSON hata, depo erişilemezse 503 ve açıklama |
 | **Süreç:** GitHub deposu, anlamlı commit geçmişi, Projects backlog, README | Bu depo; her SRS gereksinimi bir issue, 3 aşama milestone'u, [GitHub Projects panosu](https://github.com/users/Kayazilim/projects/1) (Yapılacak / Yapılıyor / Bitti, SRS önceliği, aşama görünümleri; issue kapanınca veya PR birleşince kart kendiliğinden Bitti'ye geçer), PR ile birleştirme |
 
@@ -220,7 +220,7 @@ Proje kartı ve ortak şartlar:
 | Kart: tarih bazlı arama, aylık takvim, gecelik döküm, yaşam döngüsü, doluluk ve gelir raporu, resim yükleme | Hepsi uygulandı |
 | Yapay zekâ kullanım günlüğü | [docs/ai-gunlugu.md](docs/ai-gunlugu.md) |
 
-**Bonuslar:** PSR-12 ve PHPStan, ek tasarım desenleri (Strategy ×2, State), şifre değiştirme, oturum zaman aşımı (30 dk; kendiliğinden yenilenen bölümler etkinlik sayılmaz), sayfalama, CSV dışa aktarma, yazarken sonuç veren canlı arama, sayfa yenilenmeden gönderilen formlar (favori, fiyat önizleme), transaction + satır kilidi, günlük yedek ve geri yükleme.
+**Bonuslar:** PSR-12 ve PHPStan, ek tasarım desenleri (Strategy ×2, State), şifre değiştirme, oturum zaman aşımı (60 dk; sayfanın altındaki sayaç kalan süreyi gösterir, sayfada tıklama ya da yenileme süreyi yeniden başlatır; kendiliğinden yenilenen bölümler etkinlik sayılmaz), sayfalama, CSV dışa aktarma, yazarken sonuç veren canlı arama, sayfa yenilenmeden gönderilen formlar (favori, fiyat önizleme), transaction + satır kilidi, günlük yedek ve geri yükleme.
 
 ## Klasör yapısı
 

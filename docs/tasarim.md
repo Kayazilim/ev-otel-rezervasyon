@@ -927,7 +927,8 @@ Her parça ve JSON ucu oturumu okuduktan hemen sonra `session_write_close()` ça
 
 Oturum zaman aşımı ile ilişkisi (`src/Core/Kernel.php`):
 
-- Kendiliğinden yenileme istekleri kullanıcı işlemi sayılmaz: `/parca/` ve `GET /api/` istekleri son işlem zamanını ilerletmez. Böylece açık bırakılan bir sayfa 30 dakikalık oturum zaman aşımını erteleyemez.
+- Kendiliğinden yenileme istekleri kullanıcı işlemi sayılmaz: `/parca/` ve `GET /api/` istekleri son işlem zamanını ilerletmez. Böylece açık bırakılan bir sayfa 60 dakikalık oturum zaman aşımını erteleyemez.
+- Oturum sayacı: giriş yapmış kullanıcıya sayfanın altında kalan süre gösterilir. Sayfa yenilenince sunucunun verdiği tam süreden başlar; sayfada tıklama `POST /api/oturum` ile bildirilir (en çok 10 saniyede bir, CSRF jetonuyla) ve sunucu süreyi yeniler. Sayaç sıfıra inince `GET /api/oturum` ile sorulur (süreyi uzatmaz); oturum bitmişse giriş sayfasına gidilir. Yalnızca tarayıcıda sıfırlanan bir sayaç gerçek zaman aşımıyla tutarsız kalacağı için kullanılmadı.
 - Giriş gerektiren bir parça ya da `fetch` isteği, oturum yoksa veya süresi dolduysa giriş sayfasına yönlendirilmez (giriş formu bölümün içine basılmasın); `401 Oturum gerekli.` alır. Her oturumlu sayfada çalışan bildirim sayacı betiği `401` görünce giriş sayfasına gider; uyarı mesajı orada gösterilir.
 - Parça isteğindeki diğer hatalar (`400`, `403`, `404` vb.) tam hata sayfası yerine tek satırlık uyarı parçası olarak döner (`views/errors/fragment.php`).
 

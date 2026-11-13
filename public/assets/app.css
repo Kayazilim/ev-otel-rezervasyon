@@ -976,3 +976,13 @@ legend.form-label {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
+
+/* Oturum sayacı (sayfanın altı): son 5 dakikada dikkat çeker */
+.oturum-sayaci {
+    font-size: .8rem;
+    color: var(--eo-ikincil);
+}
+
+.oturum-sayaci.oturum-az strong {
+    color: #9a3412;
+}

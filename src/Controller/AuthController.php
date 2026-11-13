@@ -13,12 +13,18 @@ use App\Exception\ValidationException;
 use App\Model\Role;
 use App\Model\User;
 use App\Service\AuthService;
+use App\Support\ClockInterface;
 
 /** Giriş, kayıt, çıkış ve parola sıfırlama (FR-01 - FR-04; taslak 05). */
 final class AuthController extends Controller
 {
-    public function __construct(View $view, Session $session, Auth $auth, private readonly AuthService $authService)
-    {
+    public function __construct(
+        View $view,
+        Session $session,
+        Auth $auth,
+        private readonly AuthService $authService,
+        private readonly ClockInterface $clock,
+    ) {
         parent::__construct($view, $session, $auth);
     }
 
@@ -94,6 +100,24 @@ final class AuthController extends Controller
         $this->flash('info', 'Güvenli bir şekilde çıkış yaptınız.');
 
         return $this->redirect('/');
+    }
+
+    /**
+     * Oturum sayacı: kapanmaya kalan süre. GET /api/ isteği kullanıcı işlemi sayılmaz, süreyi uzatmaz; sayaç sıfıra
+     * inince başka sekmede işlem yapılmış mı diye buna sorar. Oturum bitmişse Kernel 401 döndürür.
+     */
+    public function sessionStatus(Request $request): Response
+    {
+        $remaining = $this->session->remainingSeconds($this->clock->now()->getTimestamp());
+        $this->session->close();
+
+        return Response::json(['basarili' => true, 'kalan_saniye' => $remaining, 'toplam_saniye' => $this->session->timeoutSeconds()]);
+    }
+
+    /** Oturum sayacı: sayfada tıklama kullanıcı işlemidir; Kernel son işlem zamanını yeniledi, tam süre döner. */
+    public function extendSession(Request $request): Response
+    {
+        return $this->sessionStatus($request);
     }
 
     public function showForgot(Request $request): Response
