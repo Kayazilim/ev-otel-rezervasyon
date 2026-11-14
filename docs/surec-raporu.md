@@ -28,6 +28,7 @@ Tablodaki bilgiler git geçmişinden alındı. Aşama 2 kodu, Kaan Şahin taraf�
 | 3–9 Kasım | Belge düzeltmeleri | İrem | Ekip deposu, PR #32 |
 | 3–9 Kasım | JSON prototipi (çekirdek servisler, JSON deposu, arayüz, testler); ders standartlarına uyum; parola sıfırlama; arayüz ve örnek veri; çizim fotoğraflarının kapatılması; bildirim aralığı | Kaan (Claude Code ile) | Kaan'ın deposu, PR #1, #78, #79, #81, #83, #84, #85 |
 | 10–16 Kasım | Aşama 2 denetimi (oturum zaman aşımı, form doğrulamaları, erişilebilirlik); ödev metnine uyum (form değerlerinin korunması, JSON ile kısmi yenileme, sahte depolu testler, kural bozma deneyi, belgeler) | Kaan (Claude Code ile) | Kaan'ın deposu, PR #86 ve bu raporla gelen PR |
+| 10–16 Kasım | Arayüzün yenilenmesi (14.11): Airbnb/Booking tarzı modern tema, hap biçimli arama çubuğu, ilan sahibi yan menüsü, yönetim sekmeleri; tasarım belirteçleri Lovable'dan alındı, kod Bootstrap ile yazıldı | Kaan (Claude Code ve Lovable ile) | Kaan'ın deposu, `arayuz-yenileme` dalı |
 | 10–16 Kasım | Kodun ekip deposuna 20 commit hâlinde yüklenmesi: Utku 4 (altyapı), Onur 4 (model ve depo), İrem 4 (servisler), Kaan 8 (controller, görünüm, örnek veri, belgeler) | Dört üye | **[Ekip dolduracak: dört PR'ın bağlantıları ve birleşme tarihleri]** |
 
 ## 3. Tasarım ve uygulama kararları

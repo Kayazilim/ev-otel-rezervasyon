@@ -6,16 +6,17 @@
  * @var string $currentPath
  */
 $items = [
-    '/panel' => 'Panel',
-    '/panel/ilanlar' => 'İlanlarım',
-    '/panel/takvim' => 'Takvim / Fiyat',
-    '/panel/rezervasyonlar' => 'Rezervasyonlar',
-    '/panel/rapor' => 'Doluluk ve gelir',
-    '/panel/ilan/yeni' => '+ Yeni ilan ekle',
+    '/panel' => ['📊', 'Panel'],
+    '/panel/ilanlar' => ['🏡', 'İlanlarım'],
+    '/panel/takvim' => ['📅', 'Takvim / Fiyat'],
+    '/panel/rezervasyonlar' => ['🧳', 'Rezervasyonlar'],
+    '/panel/rapor' => ['📈', 'Doluluk ve gelir'],
+    '/panel/ilan/yeni' => ['➕', 'Yeni ilan ekle'],
 ];
 ?>
-<div class="list-group mb-3">
-    <?php foreach ($items as $path => $label): ?>
-        <a class="list-group-item list-group-item-action<?= $currentPath === $path ? ' active' : '' ?>" href="<?= e($view->url($path)) ?>"><?= e($label) ?></a>
+<nav class="yan-menu mb-3" aria-label="İlan sahibi paneli">
+    <span class="yan-menu-baslik">İlan sahibi</span>
+    <?php foreach ($items as $path => [$emoji, $label]): ?>
+        <a class="yan-menu-oge<?= $currentPath === $path ? ' active' : '' ?>"<?= $currentPath === $path ? ' aria-current="page"' : '' ?> href="<?= e($view->url($path)) ?>"><span aria-hidden="true"><?= $emoji ?></span> <?= e($label) ?></a>
     <?php endforeach; ?>
-</div>
+</nav>

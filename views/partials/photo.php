@@ -11,5 +11,5 @@
 <?php if ($photoId !== null): ?>
     <img src="<?= e($view->url('/foto/' . $photoId)) ?>" class="ilan-foto" alt="<?= e($alt) ?>" loading="lazy">
 <?php else: ?>
-    <div class="emoji-foto" role="img" aria-label="<?= e($alt) ?>"><?= e($type->emoji()) ?></div>
+    <div class="emoji-foto tur-<?= e($type->value) ?>" role="img" aria-label="<?= e($alt) ?>"><?= e($type->emoji()) ?></div>
 <?php endif; ?>
