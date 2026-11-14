@@ -64,7 +64,8 @@ final class DemoSeederTest extends AppTestCase
             $page = $kernel->handle(new Request('GET', $path));
             self::assertSame(200, $page->status, $path);
             self::assertStringNotContainsString('<img', $page->body, $path . ': fotoğrafı olmayan ilan resim etiketi basmaz');
-            self::assertStringContainsString('class="emoji-foto" role="img"', $page->body, $path . ': yer tutucu emojidir');
+            // Yer tutucu sınıfı türe göre zemin rengini de taşır (emoji-foto tur-otel / tur-kiralik_ev).
+            self::assertMatchesRegularExpression('/class="emoji-foto tur-[a-z_]+" role="img"/', $page->body, $path . ': yer tutucu emojidir');
         }
     }
 }

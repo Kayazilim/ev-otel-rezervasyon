@@ -1,6 +1,6 @@
 <?php
 /**
- * Ortak sayfa yerleşimi: resmi ve minimalist tema (tasarım kaynağı Lovable prototipi, uygulama Bootstrap 5).
+ * Ortak sayfa yerleşimi: modern konaklama teması (tasarım kaynağı Lovable prototipi, uygulama Bootstrap 5).
  *
  * @var App\Core\View $view
  * @var string $content
@@ -15,8 +15,12 @@ use App\Model\Role;
 $currentUser ??= null;
 $currentPath ??= '/';
 $role = $currentUser?->role;
-$nav = function (string $path, string $label) use ($view, $currentPath): string {
-    $active = $currentPath === $path || ($path !== '/' && str_starts_with($currentPath, $path . '/'));
+// Menüde doğrudan karşılığı olan adresler: bunlarda üst bölüm ("Panelim", "Yönetim") ayrıca vurgulanmaz.
+$menuPaths = ['/ara', '/favoriler', '/rezervasyonlarim', '/panel', '/panel/takvim', '/panel/rezervasyonlar', '/panel/rapor',
+    '/yonetim', '/yonetim/sikayetler', '/yonetim/kullanicilar', '/yonetim/rapor'];
+$nav = function (string $path, string $label) use ($view, $currentPath, $menuPaths): string {
+    $active = $currentPath === $path
+        || ($path !== '/' && str_starts_with($currentPath, $path . '/') && !in_array($currentPath, $menuPaths, true));
 
     return '<li class="nav-item"><a class="nav-link' . ($active ? ' active' : '') . '"' . ($active ? ' aria-current="page"' : '')
         . ' href="' . e($view->url($path)) . '">' . e($label) . '</a></li>';
@@ -30,7 +34,7 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
     <title><?= e($title ?? 'EvOtel') ?> · <?= e($appName ?? 'EvOtel') ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&amp;display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="<?= e($view->url('/assets/app.css')) ?>">
     <script>
@@ -114,7 +118,7 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
 <header class="ust-bar">
     <nav class="navbar navbar-expand-lg" aria-label="Ana menü">
         <div class="container">
-            <a class="navbar-brand" href="<?= e($view->url('/')) ?>">EvOtel</a>
+            <a class="navbar-brand" href="<?= e($view->url('/')) ?>">EvOtel<span class="nokta">.</span></a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#ust-menu" aria-controls="ust-menu" aria-expanded="false" aria-label="Menüyü aç/kapat">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -138,23 +142,30 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
                     <?php if ($currentUser === null): ?>
                         <li class="nav-item"><a class="nav-link" href="<?= e($view->url('/giris', ['rol' => 'ilan_sahibi'])) ?>#kayit">Ev sahibi ol</a></li>
                         <li class="nav-item"><a class="nav-link" href="<?= e($view->url('/giris')) ?>">Giriş yap</a></li>
-                        <li class="nav-item ms-lg-2"><a class="btn btn-primary btn-sm" href="<?= e($view->url('/giris')) ?>#kayit">Kayıt ol</a></li>
+                        <li class="nav-item ms-lg-2"><a class="btn btn-primary btn-sm rounded-pill px-3" href="<?= e($view->url('/giris')) ?>#kayit">Kayıt ol</a></li>
                     <?php else: ?>
                         <li class="nav-item">
-                            <a class="nav-link" href="<?= e($view->url('/bildirimler')) ?>">Bildirimler <span id="bildirim-sayaci"></span></a>
+                            <a class="nav-link" href="<?= e($view->url('/bildirimler')) ?>">🔔 Bildirimler <span id="bildirim-sayaci"></span></a>
                         </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <?= e($currentUser->fullName()) ?> <span class="rozet ms-1"><?= e($currentUser->role->label()) ?></span>
+                        <li class="nav-item dropdown ms-lg-2">
+                            <a class="nav-link dropdown-toggle kullanici-dugmesi" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span aria-hidden="true">☰</span>
+                                <span class="d-lg-none d-xl-inline"><?= e($currentUser->fullName()) ?></span>
+                                <span class="bas-harf" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($currentUser->firstName, 0, 1))) ?></span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="<?= e($view->url('/profil')) ?>">Profilim</a></li>
+                                <li class="dropdown-header">
+                                    <strong class="d-block"><?= e($currentUser->fullName()) ?></strong>
+                                    <span class="rozet mt-1"><?= e($currentUser->role->label()) ?></span>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="<?= e($view->url('/profil')) ?>">👤 Profilim</a></li>
                                 <?php if ($role === Role::IlanSahibi): ?>
-                                    <li><a class="dropdown-item" href="<?= e($view->url('/rezervasyonlarim')) ?>">Konakladığım yerler</a></li>
+                                    <li><a class="dropdown-item" href="<?= e($view->url('/rezervasyonlarim')) ?>">🧳 Konakladığım yerler</a></li>
                                 <?php endif; ?>
                                 <?php if ($role !== Role::Yonetici): ?>
-                                    <li><a class="dropdown-item" href="<?= e($view->url('/sikayetlerim')) ?>">Şikâyetlerim</a></li>
-                                    <li><a class="dropdown-item" href="<?= e($view->url('/sikayet')) ?>">Şikâyet oluştur</a></li>
+                                    <li><a class="dropdown-item" href="<?= e($view->url('/sikayetlerim')) ?>">💬 Şikâyetlerim</a></li>
+                                    <li><a class="dropdown-item" href="<?= e($view->url('/sikayet')) ?>">✍️ Şikâyet oluştur</a></li>
                                 <?php endif; ?>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
@@ -184,9 +195,16 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
 </main>
 
 <footer class="alt-bar">
-    <div class="container d-flex flex-wrap justify-content-between gap-2">
-        <span>© EvOtel · Aşama 2 prototip: veriler JSON dosyalarında, ödemeler simüledir; kart bilgisi alınmaz.</span>
-        <span class="d-flex flex-wrap gap-3">
+    <div class="container d-flex flex-wrap justify-content-between align-items-start gap-4">
+        <div>
+            <a class="marka" href="<?= e($view->url('/')) ?>">EvOtel.</a>
+            <p class="mt-2 mb-0">Oteller ve kiralık evler, tek yerde.</p>
+        </div>
+        <nav class="d-flex flex-wrap gap-3" aria-label="Alt menü">
+            <a href="<?= e($view->url('/ara')) ?>">Konaklamaları keşfet</a>
+            <?php if ($currentUser === null): ?>
+                <a href="<?= e($view->url('/giris', ['rol' => 'ilan_sahibi'])) ?>#kayit">Ev sahibi ol</a>
+            <?php endif; ?>
             <?php if ($currentUser !== null && $role !== Role::Yonetici): ?>
                 <a href="<?= e($view->url('/sikayet')) ?>">Şikâyet oluştur</a>
                 <a href="<?= e($view->url('/sikayetlerim')) ?>">Şikâyetlerim</a>
@@ -194,11 +212,15 @@ $nav = function (string $path, string $label) use ($view, $currentPath): string 
             <?php if ($mailInbox ?? false): ?>
                 <a href="<?= e($view->url('/posta-kutusu')) ?>">Posta kutusu</a>
             <?php endif; ?>
-        </span>
+        </nav>
+    </div>
+    <div class="container alt-cizgi d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <span>© EvOtel · Aşama 2 prototip: veriler JSON dosyalarında, ödemeler simüledir; kart bilgisi alınmaz.</span>
+        <span>🌍 Türkçe · TL</span>
     </div>
     <?php if ($currentUser !== null): ?>
         <?php $kalan = (int) ($sessionRemaining ?? 3600); ?>
-        <div class="container mt-2">
+        <div class="container mt-3">
             <div id="oturum-sayaci" class="oturum-sayaci" role="timer" data-kalan="<?= $kalan ?>">
                 Oturumun kapanmasına: <strong data-kalan-yazi><?= sprintf('%02d:%02d', intdiv($kalan, 60), $kalan % 60) ?></strong>
                 <span class="d-none d-sm-inline">· Sayfada bir yere tıklamak ya da sayfayı yenilemek süreyi yeniden başlatır.</span>

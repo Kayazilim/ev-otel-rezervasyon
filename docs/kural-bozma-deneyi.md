@@ -4,7 +4,7 @@
 > Her deneyde çekirdek problemin bir kuralı kaynak kodda geçici olarak bozuldu, testler (eşzamanlılık testleri hariç) çalıştırıldı,
 > kırılan testler kaydedildi ve dosya eski hâline döndürüldü. Tek bir deneyi sunumda canlı göstermek için: `php bin/kural-boz.php --deney=hafta-sonu`.
 
-Son çalıştırma: 13.11.2026 22:24 · PHP 8.3.28 · bozulmadan önce 248 test geçti · 7 deneyin 7 tanesinde ilgili testler kırıldı · geri yüklendikten sonra 248 test, hepsi geçti.
+Son çalıştırma: 14.11.2026 03:57 · PHP 8.3.28 · bozulmadan önce 248 test geçti · 7 deneyin 7 tanesinde ilgili testler kırıldı · geri yüklendikten sonra 248 test, hepsi geçti.
 
 | Deney | Bozulan kural | Bozulma ne demek | Kırılan test |
 | --- | --- | --- | ---: |

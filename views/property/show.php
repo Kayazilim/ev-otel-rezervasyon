@@ -37,7 +37,7 @@ $maxBar = max(1, ...array_values($detail->ratingDistribution));
         <?php endforeach; ?>
     </div>
 <?php else: ?>
-    <div class="galeri mt-3"><div class="emoji-foto" role="img" aria-label="<?= e($p->name) ?>"><?= e($p->type->emoji()) ?></div></div>
+    <div class="galeri mt-3"><div class="emoji-foto tur-<?= e($p->type->value) ?>" role="img" aria-label="<?= e($p->name) ?>"><?= e($p->type->emoji()) ?></div></div>
 <?php endif; ?>
 
 <div class="row g-4 g-lg-5">
